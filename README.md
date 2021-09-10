@@ -1,3 +1,3 @@
 # lightmatrix
 
-# exploratory implementation of light weight matrix utilities
+## exploratory implementation of light weight matrix utilities

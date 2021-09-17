@@ -1,7 +1,5 @@
-use num_traits::{float::Float, int::PrimInt, NumAssign};
+use num_traits::NumAssign;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
-use std::ops::{Deref, DerefMut};
-use std::ops::{Index, IndexMut};
 
 use crate::matrix::Matrix;
 use crate::scalar::Scalar;

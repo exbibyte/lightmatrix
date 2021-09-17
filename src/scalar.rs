@@ -1,4 +1,4 @@
-use num_traits::{float::Float, int::PrimInt, NumAssign};
+use num_traits::NumAssign;
 
 pub struct Scalar<T: NumAssign + Copy + Default>(pub T);
 

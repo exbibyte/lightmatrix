@@ -4,6 +4,7 @@ use std::ops::{Deref, DerefMut};
 use std::ops::{Index, IndexMut};
 
 use crate::matrix::Matrix;
+use crate::scalar::Scalar;
 
 pub trait Dot<Rhs> {
     type R;
@@ -35,14 +36,14 @@ impl<T: NumAssign + Copy + Default, const ROW_1: usize, const COL_1: usize, cons
 }
 
 macro_rules! delegate_num_ops {
-    ($struct_name:ident, $trait:ident, $func:ident) => {
+    ($trait:ident, $func:ident) => {
         impl<T: NumAssign + Copy + Default, const ROW: usize, const COL: usize> $trait
-            for $struct_name<T, ROW, COL>
+            for Matrix<T, ROW, COL>
         {
             type Output = Self;
 
             fn $func(self, rhs: Self) -> Self {
-                let mut ret = $struct_name([[T::default(); COL]; ROW]);
+                let mut ret = Matrix::default();
 
                 for y in 0..ROW {
                     for x in 0..COL {
@@ -57,9 +58,9 @@ macro_rules! delegate_num_ops {
 }
 
 macro_rules! delegate_num_ops_assign {
-    ($struct_name:ident, $trait:ident, $func:ident) => {
+    ($trait:ident, $func:ident) => {
         impl<T: NumAssign + Copy + Default, const ROW: usize, const COL: usize> $trait
-            for $struct_name<T, ROW, COL>
+            for Matrix<T, ROW, COL>
         {
             fn $func(&mut self, rhs: Self) {
                 for y in 0..ROW {
@@ -73,9 +74,9 @@ macro_rules! delegate_num_ops_assign {
 }
 
 macro_rules! delegate_num_ops_scalar {
-    ($struct_name:ident, $trait:ident, $func:ident) => {
+    ( $trait:ident, $func:ident) => {
         impl<T: NumAssign + Copy + Default, const ROW: usize, const COL: usize> $trait<T>
-            for $struct_name<T, ROW, COL>
+            for Matrix<T, ROW, COL>
         {
             type Output = Self;
 
@@ -95,9 +96,9 @@ macro_rules! delegate_num_ops_scalar {
 }
 
 macro_rules! delegate_num_ops_assign_scalar {
-    ($struct_name:ident, $trait:ident, $func:ident) => {
+    ($trait:ident, $func:ident) => {
         impl<T: NumAssign + Copy + Default, const ROW: usize, const COL: usize> $trait<T>
-            for $struct_name<T, ROW, COL>
+            for Matrix<T, ROW, COL>
         {
             fn $func(&mut self, rhs: T) {
                 for y in 0..ROW {
@@ -110,25 +111,44 @@ macro_rules! delegate_num_ops_assign_scalar {
     };
 }
 
-delegate_num_ops!(Matrix, Mul, mul);
-delegate_num_ops!(Matrix, Div, div);
-delegate_num_ops!(Matrix, Add, add);
-delegate_num_ops!(Matrix, Sub, sub);
+macro_rules! delegate_num_ops_scalar_left {
+    ($trait:ident, $func:ident) => {
+        impl<T: NumAssign + Copy + Default, const ROW: usize, const COL: usize>
+            $trait<Matrix<T, ROW, COL>> for Scalar<T>
+        {
+            type Output = Matrix<T, ROW, COL>;
 
-delegate_num_ops_assign!(Matrix, MulAssign, mul_assign);
-delegate_num_ops_assign!(Matrix, DivAssign, div_assign);
-delegate_num_ops_assign!(Matrix, AddAssign, add_assign);
-delegate_num_ops_assign!(Matrix, SubAssign, sub_assign);
+            fn $func(self, rhs: Matrix<T, ROW, COL>) -> Self::Output {
+                rhs.$func(self.0)
+            }
+        }
+    };
+}
 
-delegate_num_ops_scalar!(Matrix, Mul, mul);
-delegate_num_ops_scalar!(Matrix, Div, div);
-delegate_num_ops_scalar!(Matrix, Add, add);
-delegate_num_ops_scalar!(Matrix, Sub, sub);
+delegate_num_ops!(Mul, mul);
+delegate_num_ops!(Div, div);
+delegate_num_ops!(Add, add);
+delegate_num_ops!(Sub, sub);
 
-delegate_num_ops_assign_scalar!(Matrix, SubAssign, sub_assign);
-delegate_num_ops_assign_scalar!(Matrix, AddAssign, add_assign);
-delegate_num_ops_assign_scalar!(Matrix, MulAssign, mul_assign);
-delegate_num_ops_assign_scalar!(Matrix, DivAssign, div_assign);
+delegate_num_ops_assign!(MulAssign, mul_assign);
+delegate_num_ops_assign!(DivAssign, div_assign);
+delegate_num_ops_assign!(AddAssign, add_assign);
+delegate_num_ops_assign!(SubAssign, sub_assign);
+
+delegate_num_ops_scalar!(Mul, mul);
+delegate_num_ops_scalar!(Div, div);
+delegate_num_ops_scalar!(Add, add);
+delegate_num_ops_scalar!(Sub, sub);
+
+delegate_num_ops_scalar_left!(Mul, mul);
+delegate_num_ops_scalar_left!(Div, div);
+delegate_num_ops_scalar_left!(Add, add);
+delegate_num_ops_scalar_left!(Sub, sub);
+
+delegate_num_ops_assign_scalar!(SubAssign, sub_assign);
+delegate_num_ops_assign_scalar!(AddAssign, add_assign);
+delegate_num_ops_assign_scalar!(MulAssign, mul_assign);
+delegate_num_ops_assign_scalar!(DivAssign, div_assign);
 
 #[test]
 fn test_rawarray_operator_dot() {
@@ -182,5 +202,18 @@ fn test_rawarray_operator_mul_scalar() {
         [36f32, 42f32, 48f32],
     ]);
     let ret = a * b;
+    assert_eq!(ret, expect);
+}
+
+#[test]
+fn test_rawarray_operator_mul_scalar_left() {
+    let a = Matrix([[0f32, 1f32, 2f32], [3f32, 4f32, 5f32], [6f32, 7f32, 8f32]]);
+    let b = 6f32;
+    let expect = Matrix([
+        [0f32, 6f32, 12f32],
+        [18f32, 24f32, 30f32],
+        [36f32, 42f32, 48f32],
+    ]);
+    let ret = Scalar::from(b) * a;
     assert_eq!(ret, expect);
 }

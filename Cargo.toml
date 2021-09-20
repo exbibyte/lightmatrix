@@ -11,3 +11,4 @@ edition = "2018"
 
 [dependencies]
 num-traits = "0.2"
+more-asserts = "0.2"

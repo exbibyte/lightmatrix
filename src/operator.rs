@@ -1,5 +1,5 @@
 use num_traits::NumAssign;
-use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, RemAssign, Sub, SubAssign};
 
 use crate::matrix::Matrix;
 use crate::scalar::Scalar;
@@ -127,11 +127,13 @@ delegate_num_ops!(Mul, mul);
 delegate_num_ops!(Div, div);
 delegate_num_ops!(Add, add);
 delegate_num_ops!(Sub, sub);
+delegate_num_ops!(Rem, rem);
 
 delegate_num_ops_assign!(MulAssign, mul_assign);
 delegate_num_ops_assign!(DivAssign, div_assign);
 delegate_num_ops_assign!(AddAssign, add_assign);
 delegate_num_ops_assign!(SubAssign, sub_assign);
+delegate_num_ops_assign!(RemAssign, rem_assign);
 
 delegate_num_ops_scalar!(Mul, mul);
 delegate_num_ops_scalar!(Div, div);

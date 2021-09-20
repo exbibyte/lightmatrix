@@ -6,7 +6,7 @@ use std::ops::{Index, IndexMut};
 // #[cfg(test)]
 use std::fmt::Debug;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Matrix<T: NumAssign + Copy + Default, const ROW: usize, const COL: usize>(
     pub [[T; COL]; ROW],
 );
@@ -119,6 +119,28 @@ impl<const ROW: usize, const COL: usize> Eq for Matrix<i8, ROW, COL> {}
 impl<const ROW: usize, const COL: usize> Eq for Matrix<i32, ROW, COL> {}
 impl<const ROW: usize, const COL: usize> Eq for Matrix<i64, ROW, COL> {}
 
+pub(crate) fn matrix_approx_eq_float<
+    T: PartialEq + NumAssign + Copy + Default + Float + Debug,
+    const ROW: usize,
+    const COL: usize,
+>(
+    a: &Matrix<T, ROW, COL>,
+    b: &Matrix<T, ROW, COL>,
+    tol: T,
+) {
+    assert_eq!(a.cols(), b.cols());
+    assert_eq!(a.rows(), b.rows());
+    for i in 0..a.rows() {
+        for j in 0..a.cols() {
+            if a.0[i][j].is_finite() && !b.0[i][j].is_finite() {
+                assert!(false, "matrices not equal:\n{:#?}\n{:#?}", a, b);
+            } else if (a.0[i][j] - b.0[i][j]).abs() > tol {
+                assert!(false, "matrices not equal:\n{:#?}\n{:#?}", a, b);
+            }
+        }
+    }
+}
+
 pub trait NumericAbs<F> {
     fn inner_abs(&self) -> F;
 }
@@ -166,6 +188,12 @@ impl NumericAbs<u128> for u128 {
 }
 
 impl<T: NumAssign + Copy + Default, const ROW: usize, const COL: usize> Matrix<T, ROW, COL> {
+    pub fn rows(&self) -> usize {
+        ROW
+    }
+    pub fn cols(&self) -> usize {
+        COL
+    }
     pub fn t(&self) -> Matrix<T, COL, ROW> {
         let mut res = Matrix([[T::default(); ROW]; COL]);
         for i in 0..ROW {
@@ -216,6 +244,14 @@ impl<T: NumAssign + Copy + Default, const ROW: usize, const COL: usize> Matrix<T
             ret += self[[j, 0]] * self[[j, 0]];
         }
         ret.sqrt()
+    }
+
+    pub fn normalize_l2(&self) -> Self
+    where
+        T: Real,
+    {
+        let a = self.norm_l2();
+        *self / a
     }
 }
 
@@ -438,6 +474,13 @@ impl<T: NumAssign + Copy + Default, const ROW: usize> Matrix<T, ROW, ROW> {
 }
 
 #[test]
+fn test_dim() {
+    let a = Matrix([[0i32, 1i32, 2i32], [3i32, 4i32, 5i32]]);
+    assert_eq!(a.rows(), 2);
+    assert_eq!(a.cols(), 3);
+}
+
+#[test]
 fn test_transpose() {
     let a = Matrix([[0i32, 1i32, 2i32], [3i32, 4i32, 5i32], [6i32, 7i32, 8i32]]);
     let expect = Matrix([[0i32, 3i32, 6i32], [1i32, 4i32, 7i32], [2i32, 5i32, 8i32]]);
@@ -533,7 +576,7 @@ fn test_inv_mat4() {
 }
 
 #[test]
-fn _test_inv_unsupported_size() {
+fn test_inv_unsupported_size() {
     use std::panic;
     let a = Matrix::from([[0f32; 5]; 5]);
     let result = panic::catch_unwind(|| a.inv());

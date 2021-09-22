@@ -263,7 +263,22 @@ impl<T: NumAssign + Copy + Default, const ROW: usize> Matrix<T, ROW, ROW> {
         }
         ret
     }
-
+    pub fn eye() -> Self {
+        let mut m = Self::zero();
+        for i in 0..ROW {
+            m[[i, i]] = T::one();
+        }
+        m
+    }
+    pub fn zero() -> Self {
+        let mut m = Matrix::<T, ROW, ROW>::default();
+        for i in 0..ROW {
+            for j in 0..ROW {
+                m[[i, j]] = T::zero();
+            }
+        }
+        m
+    }
     fn inv_3(m: &Matrix<T, 3, 3>) -> Matrix<T, 3, 3>
     where
         T: Real,
@@ -430,10 +445,13 @@ impl<T: NumAssign + Copy + Default, const ROW: usize> Matrix<T, ROW, ROW> {
     /// # Examples
     ///
     /// 2x2 inverse:
+    /// ```
+    /// use lightmatrix::matrix::Matrix;
     /// let a = Matrix::from([[4f32, 7f32], [2f32, 6f32]]);
     /// let ret = a.inv();
     /// let expect = Matrix::from([[0.6f32, -0.7f32], [-0.2f32, 0.4f32]]);
     /// assert_eq!(ret, expect);
+    /// ```
     ///
     /// Invalid shape:
     ///

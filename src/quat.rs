@@ -14,7 +14,7 @@ use std::ops::{Add, Mul, Sub};
 
 use num_traits::{float::FloatConst, real::Real, NumAssign};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Quat<T: Real + NumAssign + Default + Clone + PartialEq>(pub Matrix<T, 1, 4>);
 
 impl<T: Real + NumAssign + Default> Default for Quat<T> {
@@ -51,164 +51,6 @@ impl<T: Real + Default + NumAssign> Quat<T> {
     #[allow(dead_code)]
     pub fn init(x: T, y: T, z: T, w: T) -> Self {
         Quat(Matrix::from([[x, y, z, w]]))
-    }
-
-    #[allow(dead_code)]
-    pub fn init_auto_w(x: T, y: T, z: T) -> Self {
-        let w = T::one() - x * x - y * y - z * z;
-        if w < T::zero() {
-            Quat(Matrix::from([[x, y, z, w]]))
-        } else {
-            Quat(Matrix::from([[x, y, z, T::from(-1.).unwrap() * w.sqrt()]]))
-        }
-    }
-    #[allow(dead_code)]
-    pub fn init_from_translation(trans: Matrix<T, 3, 1>) -> Self {
-        let two = T::from(2.).unwrap();
-        Quat::init(
-            trans[[0, 0]] / two,
-            trans[[1, 0]] / two,
-            trans[[2, 0]] / two,
-            T::zero(),
-        )
-    }
-    #[allow(dead_code)]
-    pub fn to_translation(&self) -> Matrix<T, 4, 4> {
-        //assume current quaternion corresponds to translation
-        let two = T::from(2.).unwrap();
-        Matrix::from([
-            [T::zero(), T::zero(), T::zero(), two * self.x()],
-            [T::zero(), T::zero(), T::zero(), two * self.y()],
-            [T::zero(), T::zero(), T::zero(), two * self.z()],
-            [T::zero(), T::zero(), T::zero(), T::one()],
-        ])
-    }
-    ///expects a proper rotation matrix as input
-    pub fn init_from_rotation(rot: Matrix<T, 3, 3>) -> Self {
-        let t = rot.trace();
-        if t > T::zero() {
-            let s = T::from(0.5).unwrap() / (t + T::one()).sqrt();
-
-            Quat::init(
-                (rot[[2, 1]] - rot[[1, 2]]) * s,
-                (rot[[0, 2]] - rot[[2, 0]]) * s,
-                (rot[[1, 0]] - rot[[0, 1]]) * s,
-                T::one() / s * T::from(0.25).unwrap(),
-            )
-        } else if rot[[0, 0]] > rot[[1, 1]] && rot[[0, 0]] > rot[[2, 2]] {
-            let s =
-                T::from(2.).unwrap() * (T::one() + rot[[0, 0]] - rot[[1, 1]] - rot[[2, 2]]).sqrt();
-
-            Quat::init(
-                T::from(0.25).unwrap() * s,
-                (rot[[0, 1]] + rot[[1, 0]]) / s,
-                (rot[[0, 2]] + rot[[2, 0]]) / s,
-                (rot[[2, 1]] - rot[[1, 2]]) / s,
-            )
-        } else if rot[[1, 1]] > rot[[2, 2]] {
-            let s =
-                T::from(2.).unwrap() * (T::one() + rot[[1, 1]] - rot[[0, 0]] - rot[[2, 2]]).sqrt();
-
-            Quat::init(
-                (rot[[0, 1]] - rot[[1, 0]]) / s,
-                T::from(0.25).unwrap() * s,
-                (rot[[1, 2]] - rot[[2, 1]]) / s,
-                (rot[[0, 2]] - rot[[2, 0]]) / s,
-            )
-        } else {
-            let s =
-                T::from(2.).unwrap() * (T::one() + rot[[2, 2]] - rot[[0, 0]] - rot[[1, 1]]).sqrt();
-
-            Quat::init(
-                (rot[[0, 2]] - rot[[2, 0]]) / s,
-                (rot[[1, 2]] - rot[[2, 1]]) / s,
-                T::from(0.25).unwrap() * s,
-                (rot[[1, 0]] - rot[[0, 1]]) / s,
-            )
-        }
-    }
-    #[allow(dead_code)]
-    pub fn to_rotation(&self) -> Matrix<T, 4, 4> {
-        //assumes unit quaternion
-        let a = self.normalize();
-        let two = T::from(2.).unwrap();
-
-        Matrix::from([
-            [
-                T::one() - two * (a.y() * a.y() + a.z() * a.z()), //first row
-                two * (a.x() * a.y() - a.z() * a.w()),
-                two * (a.x() * a.z() + a.y() * a.w()),
-                T::zero(),
-            ],
-            [
-                two * (a.x() * a.y() + a.z() * a.w()), //second row
-                T::one() - two * (a.x() * a.x() + a.z() * a.z()),
-                two * (a.y() * a.z() - a.x() * a.w()),
-                T::zero(),
-            ],
-            [
-                two * (a.x() * a.z() - a.y() * a.w()), //third row
-                two * (a.z() * a.y() + a.x() * a.w()),
-                T::one() - two * (a.x() * a.x() + a.y() * a.y()),
-                T::zero(),
-            ],
-            [
-                T::zero(), //last row
-                T::zero(),
-                T::zero(),
-                T::one(),
-            ],
-        ])
-    }
-    #[allow(dead_code)]
-    pub fn init_from_axis_angle_degree(axis: Matrix<T, 3, 1>, angle: T) -> Self
-    where
-        T: FloatConst,
-    {
-        Self::init_from_axis_angle_radian(axis, angle.to_radians())
-    }
-    #[allow(dead_code)]
-    pub fn init_from_axis_angle_radian(axis: Matrix<T, 3, 1>, angle: T) -> Self
-    where
-        T: FloatConst,
-    {
-        let two = T::from(2.).unwrap();
-        let radian = ((angle % (two * T::PI())) + two * T::PI()) % (two * T::PI());
-        let axis_adjust = axis.normalize_l2();
-        let sine_half = (radian / T::from(2.).unwrap()).sin();
-        Quat::init(
-            axis_adjust[[0, 0]] * sine_half,
-            axis_adjust[[1, 0]] * sine_half,
-            axis_adjust[[2, 0]] * sine_half,
-            (radian / two).cos(),
-        )
-    }
-    /// returns ([x,y,z], angle) where angle is in radians
-    #[allow(dead_code)]
-    pub fn to_axis_angle(&self) -> (Matrix<T, 3, 1>, T) {
-        let q = self.normalize();
-        let k = (T::one() - q.w() * q.w()).sqrt();
-        if k < T::epsilon() {
-            (
-                Matrix::from([[T::one()], [T::zero()], [T::zero()]]),
-                T::zero(),
-            )
-        } else {
-            let vec_x = q.x() / k;
-            let vec_y = q.y() / k;
-            let vec_z = q.z() / k;
-            (
-                Matrix::from([[vec_x], [vec_y], [vec_z]]),
-                T::from(2.).unwrap() * self.w().acos(),
-            )
-        }
-    }
-    ///rotation of a vector p, by a unit quaternion q:  q * p q', where q' is the conjugate
-    #[allow(dead_code)]
-    pub fn rotate_vector(&self, p: Matrix<T, 3, 1>) -> Matrix<T, 3, 1> {
-        let quat_p = Quat::init(p[[0, 0]], p[[1, 0]], p[[2, 0]], T::zero());
-        let temp2 = &(self * &quat_p) * &self.conjugate();
-        Matrix::from([[temp2.x()], [temp2.y()], [temp2.z()]])
     }
     #[allow(dead_code)]
     pub fn reflection_in_plane(&self, p: Matrix<T, 3, 1>) -> Matrix<T, 3, 1> {
@@ -363,7 +205,7 @@ impl<T: Real + Default + NumAssign> Quat<T> {
         self.x() * other.x() + self.y() * other.y() + self.z() * other.z() + self.w() * other.w()
     }
     #[allow(dead_code)]
-    pub fn interpolate_linear(start: Quat<T>, end: Quat<T>, t: T) -> Self {
+    pub fn lerp(start: Quat<T>, end: Quat<T>, t: T) -> Self {
         let clamp_upper = if t > T::one() { T::one() } else { t };
         let clamp = if clamp_upper < T::zero() {
             T::zero()
@@ -378,7 +220,7 @@ impl<T: Real + Default + NumAssign> Quat<T> {
         )
     }
     #[allow(dead_code)]
-    pub fn interpolate_slerp(start: Quat<T>, end: Quat<T>, t: T) -> Self {
+    pub fn slerp(start: Quat<T>, end: Quat<T>, t: T) -> Self {
         let t_clamp_upper = if t > T::one() { T::one() } else { t };
         let t_clamp = if t_clamp_upper < T::zero() {
             T::zero()
@@ -428,10 +270,24 @@ impl<T: Real + Default + NumAssign> Add for &Quat<T> {
     }
 }
 
+impl<T: Real + Default + NumAssign> Add for Quat<T> {
+    type Output = Quat<T>;
+    fn add(self, rhs: Self) -> Self::Output {
+        self.add(rhs)
+    }
+}
+
 impl<'a, T: Real + Default + NumAssign> Mul<&'a Quat<T>> for &'a Quat<T> {
     type Output = Quat<T>;
     fn mul(self, rhs: Self) -> Self::Output {
         self.mul(rhs)
+    }
+}
+
+impl<T: Real + Default + NumAssign> Mul<Quat<T>> for Quat<T> {
+    type Output = Quat<T>;
+    fn mul(self, rhs: Self) -> Self::Output {
+        (&self).mul(&rhs)
     }
 }
 
@@ -470,6 +326,13 @@ impl<T: Real + Default + NumAssign> Sub for &Quat<T> {
     }
 }
 
+impl<T: Real + Default + NumAssign> Sub for Quat<T> {
+    type Output = Quat<T>;
+    fn sub(self, rhs: Self) -> Self::Output {
+        self.minus(&rhs)
+    }
+}
+
 #[test]
 fn convert_float() {
     struct Test<T: Real>(std::marker::PhantomData<T>);
@@ -489,91 +352,7 @@ fn convert_float() {
 
 #[test]
 fn test_mul_scalar_by_quat() {
-    let q = Quat::init_auto_w(1., 2., 3.);
+    let q = Quat::init(1., 2., 3., 4.);
     let q2 = Scalar(5.) * q;
     let q3 = q2 * 0.5;
-}
-
-#[test]
-fn test_quat() {
-    use more_asserts::assert_le;
-    {
-        use std::f64::consts::PI;
-        //convert axis angle to quaternion representation and back
-        let axis = Matrix::from([[1., 2., 3.]]).t();
-
-        let axis_normalize = axis.normalize_l2();
-        let q = Quat::init_from_axis_angle_degree(axis, 90.);
-        let (a, angle) = q.to_axis_angle();
-        assert_eq!(a, axis_normalize);
-        assert!((angle / PI * 180. - 90.).abs() < 1e-9);
-    }
-    {
-        use std::f32::consts::PI;
-        //convert axis angle to quaternion representation and back
-        let axis = Matrix::from([[1., 2., 3.]]).t();
-
-        let axis_normalize = axis.normalize_l2();
-        let q = Quat::init_from_axis_angle_degree(axis, 370.);
-        let (a, angle) = q.to_axis_angle();
-        // assert_eq!(a, axis_normalize);
-        matrix_approx_eq_float(&a, &axis_normalize, 1e-5);
-        assert_le!((angle / PI * 180. - 10.).abs(), 1e-4);
-    }
-    {
-        use std::f32::consts::PI;
-        //convert axis angle to quaternion representation and back
-        let axis = Matrix::from([[1., 2., 3.]]).t();
-
-        let axis_normalize = axis.normalize_l2();
-        let q = Quat::init_from_axis_angle_degree(axis, -33.);
-        let (a, angle) = q.to_axis_angle();
-        assert!(
-            ((angle / PI * 180. - (360. - 33.)).abs() < 1e-9 && a == axis_normalize)
-                || ((angle / PI * 180. + (360. - 33.)).abs() < 1e-9
-                    && (a * -1.) == (axis_normalize))
-        );
-    }
-    {
-        use std::f32::consts::PI;
-        //compute rotation using quaternion
-        //rotate a vector using the rotation matrix and compare to rotation using quaternions
-        let p = Matrix::from([[1., 5., -3.]]).t();
-        let axis = Matrix::from([[1., 0., 0.]]).t();
-
-        let axis_normalize = axis.normalize_l2();
-        let q = Quat::init_from_axis_angle_degree(axis, 90.);
-        let (a, angle) = q.to_axis_angle();
-        assert_eq!(a, axis_normalize);
-        assert_le!((angle / PI * 180. - 90.).abs(), 1e-5);
-
-        let rot = q.to_rotation();
-
-        let rot_expected = Matrix::from([
-            [1., 0., 0., 0.],
-            [0., 0., -1., 0.],
-            [0., 1., 0., 0.],
-            [0., 0., 0., 1.],
-        ]);
-
-        assert_eq!(rot, rot_expected);
-        // println!("rot: {:#?}", rot);
-        // println!("rot_expected: {:#?}", rot_expected);
-
-        let vec_rotated_expected =
-            rot_expected.dot(&Matrix::from([[p[[0, 0]], p[[1, 0]], p[[2, 0]], 1.]]).t());
-
-        let vec_rotated = q.rotate_vector(p);
-
-        matrix_approx_eq_float(
-            &vec_rotated,
-            &Matrix::from([[
-                vec_rotated_expected[[0, 0]],
-                vec_rotated_expected[[1, 0]],
-                vec_rotated_expected[[2, 0]],
-            ]])
-            .t(),
-            1e-6,
-        );
-    }
 }

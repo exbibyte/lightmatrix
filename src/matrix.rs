@@ -1,5 +1,6 @@
 use num_traits::{float::Float, real::Real, NumAssign, Signed};
 
+use core::ops::Range;
 use std::ops::{Deref, DerefMut};
 use std::ops::{Index, IndexMut};
 
@@ -10,6 +11,63 @@ use std::fmt::Debug;
 pub struct Matrix<T: NumAssign + Copy + Default, const ROW: usize, const COL: usize>(
     pub [[T; COL]; ROW],
 );
+
+/// get a 3x3 subregion of the input matrix
+impl<T: NumAssign + Copy + Default, const ROW: usize, const COL: usize>
+    From<(Matrix<T, ROW, COL>, [Range<usize>; 2])> for Matrix<T, 3, 3>
+{
+    fn from((m, [range_rows, range_cols]): (Matrix<T, ROW, COL>, [Range<usize>; 2])) -> Self {
+        let mut ret = Self::zero();
+        assert!(range_rows.end <= ROW);
+        assert!(range_cols.end <= COL);
+        assert!(range_rows.end - range_rows.start <= 3);
+        assert!(range_cols.end - range_cols.start <= 3);
+        for (out_i, i) in (range_rows.start..range_rows.end).enumerate() {
+            for (out_j, j) in (range_cols.start..range_cols.end).enumerate() {
+                ret[[out_i, out_j]] = m[[i, j]];
+            }
+        }
+        ret
+    }
+}
+
+/// get a 3x1 subregion of the input matrix
+impl<T: NumAssign + Copy + Default, const ROW: usize, const COL: usize>
+    From<(Matrix<T, ROW, COL>, [Range<usize>; 2])> for Matrix<T, 3, 1>
+{
+    fn from((m, [range_rows, range_cols]): (Matrix<T, ROW, COL>, [Range<usize>; 2])) -> Self {
+        let mut ret = Self::zero();
+        assert!(range_rows.end <= ROW);
+        assert!(range_cols.end <= COL);
+        assert!(range_rows.end - range_rows.start <= 3);
+        assert!(range_cols.end - range_cols.start <= 1);
+        for (out_i, i) in (range_rows.start..range_rows.end).enumerate() {
+            for (out_j, j) in (range_cols.start..range_cols.end).enumerate() {
+                ret[[out_i, out_j]] = m[[i, j]];
+            }
+        }
+        ret
+    }
+}
+
+/// get a 1x3 subregion of the input matrix
+impl<T: NumAssign + Copy + Default, const ROW: usize, const COL: usize>
+    From<(Matrix<T, ROW, COL>, [Range<usize>; 2])> for Matrix<T, 1, 3>
+{
+    fn from((m, [range_rows, range_cols]): (Matrix<T, ROW, COL>, [Range<usize>; 2])) -> Self {
+        let mut ret = Self::zero();
+        assert!(range_rows.end <= ROW);
+        assert!(range_cols.end <= COL);
+        assert!(range_rows.end - range_rows.start <= 1);
+        assert!(range_cols.end - range_cols.start <= 3);
+        for (out_i, i) in (range_rows.start..range_rows.end).enumerate() {
+            for (out_j, j) in (range_cols.start..range_cols.end).enumerate() {
+                ret[[out_i, out_j]] = m[[i, j]];
+            }
+        }
+        ret
+    }
+}
 
 impl<T: NumAssign + Copy + Default, const ROW: usize, const COL: usize> Default
     for Matrix<T, ROW, COL>
@@ -223,6 +281,15 @@ impl<T: NumAssign + Copy + Default, const ROW: usize, const COL: usize> Matrix<T
     pub fn cols(&self) -> usize {
         COL
     }
+    pub fn zero() -> Self {
+        let mut m = Self::default();
+        for i in 0..ROW {
+            for j in 0..COL {
+                m[[i, j]] = T::zero();
+            }
+        }
+        m
+    }
     pub fn t(&self) -> Matrix<T, COL, ROW> {
         let mut res = Matrix([[T::default(); ROW]; COL]);
         for i in 0..ROW {
@@ -296,15 +363,6 @@ impl<T: NumAssign + Copy + Default, const ROW: usize> Matrix<T, ROW, ROW> {
         let mut m = Self::zero();
         for i in 0..ROW {
             m[[i, i]] = T::one();
-        }
-        m
-    }
-    pub fn zero() -> Self {
-        let mut m = Matrix::<T, ROW, ROW>::default();
-        for i in 0..ROW {
-            for j in 0..ROW {
-                m[[i, j]] = T::zero();
-            }
         }
         m
     }
@@ -631,6 +689,25 @@ fn test_inv_unsupported_size() {
 }
 
 #[cfg(test)]
+impl<
+        T: NumAssign + Copy + Default + Debug + 'static + From<i32>,
+        const ROW: usize,
+        const COL: usize,
+    > quickcheck::Arbitrary for Matrix<T, ROW, COL>
+{
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        let selection = (-100..100).collect::<Vec<_>>();
+        let mut m = Matrix::<T, ROW, COL>::default();
+        for i in 0..ROW {
+            for j in 0..COL {
+                m[[i, j]] = T::from(g.choose(&selection).unwrap().to_owned());
+            }
+        }
+        m
+    }
+}
+
+#[cfg(test)]
 #[derive(Clone, Copy, Debug)]
 struct InvertibleMatrix<T: NumAssign + Copy + Default + 'static, const ROW: usize>(
     pub Matrix<T, ROW, ROW>,
@@ -703,4 +780,58 @@ fn matrix_invert_property_test_f64_4x4(m: InvertibleMatrix<f64, 4>) -> bool {
     let inverse = m.0.inv();
     let expected_eye = inverse.dot(m.0);
     matrix_approx_eq_float(&expected_eye, &Matrix::<f64, 4, 4>::eye(), 1e-5)
+}
+
+#[cfg(test)]
+#[quickcheck]
+fn matrix_dot((m1, m2): (Matrix<f64, 15, 3>, Matrix<f64, 3, 7>)) -> bool {
+    use crate::operator::Dot;
+
+    let ret = m1.dot(&m2);
+    let mut expected = Matrix::<f64, 15, 7>::default();
+    for i in 0..15 {
+        for j in 0..7 {
+            for k in 0..3 {
+                expected[[i, j]] += m1[[i, k]] * m2[[k, j]];
+            }
+        }
+    }
+    matrix_approx_eq_float(&ret, &expected, 1e-7)
+}
+
+#[cfg(test)]
+#[quickcheck]
+fn matrix_subregion_3x3(m: Matrix<f64, 15, 10>) -> bool {
+    let sub_region = [(2..5), (3..6)];
+    let ret = Matrix::<f64, 3, 3>::from((m, sub_region));
+
+    let mut expected = Matrix::<f64, 3, 3>::default();
+    for (i_out, i) in (2..5).enumerate() {
+        for (j_out, j) in (3..6).enumerate() {
+            expected[[i_out, j_out]] = m[[i, j]];
+        }
+    }
+    matrix_approx_eq_float(&ret, &expected, 1e-7)
+}
+
+#[cfg(test)]
+#[quickcheck]
+fn matrix_subregion_3x1(m: Matrix<f64, 4, 1>) -> bool {
+    let ret = Matrix::<f64, 3, 1>::from((m, [(0..3), (0..1)]));
+
+    let mut expected = Matrix::<f64, 3, 1>::default();
+    for (i_out, i) in (0..3).enumerate() {
+        for (j_out, j) in (0..1).enumerate() {
+            expected[[i_out, j_out]] = m[[i, j]];
+        }
+    }
+    matrix_approx_eq_float(&ret, &expected, 1e-7)
+}
+
+#[test]
+fn matrix_subregion_unmatched_shape() {
+    let m = Matrix::<f64, 4, 1>::default();
+    use std::panic;
+    let result = panic::catch_unwind(|| Matrix::<f64, 3, 1>::from((m, [(0..4), (0..1)])));
+    assert!(result.is_err());
 }

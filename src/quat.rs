@@ -60,36 +60,34 @@ impl<T: Real + Default + NumAssign> Quat<T> {
     pub fn w_mut(&mut self) -> &mut T {
         &mut self.0[[0, 3]]
     }
-    #[allow(dead_code)]
     pub fn init(x: T, y: T, z: T, w: T) -> Self {
         Quat(Matrix::from([[x, y, z, w]]))
     }
-    #[allow(dead_code)]
-    pub fn reflection_in_plane(&self, p: Matrix<T, 3, 1>) -> Matrix<T, 3, 1> {
-        let quat_p = Quat::init(p[[0, 0]], p[[1, 0]], p[[2, 0]], T::zero());
-        let temp = self * &quat_p;
-        let temp2 = &temp * self;
-        Matrix::from([[temp2.x()], [temp2.y()], [temp2.z()]])
-    }
-    #[allow(dead_code)]
-    pub fn parallel_component_of_plane(&self, p: Matrix<T, 3, 1>) -> Matrix<T, 3, 1> {
-        let quat_p = Quat::init(p[[0, 0]], p[[1, 0]], p[[2, 0]], T::zero());
-        let temp = self * &quat_p;
-        let temp2 = &temp * self;
-        let temp3 = &quat_p + &temp2;
-        let temp4 = &temp3 * T::from(0.5).unwrap();
-        Matrix::from([[temp4.x()], [temp4.y()], [temp4.z()]])
-    }
-    #[allow(dead_code)]
-    pub fn orthogonal_component_of_plane(&self, p: Matrix<T, 3, 1>) -> Matrix<T, 3, 1> {
-        let quat_p = Quat::init(p[[0, 0]], p[[1, 0]], p[[2, 0]], T::zero());
-        let temp = self * &quat_p;
-        let temp2 = &temp * self;
-        let temp3 = &quat_p - &temp2;
-        let temp4 = &temp3 * T::from(0.5).unwrap();
-        Matrix::from([[temp4.x()], [temp4.y()], [temp4.z()]])
-    }
-    #[allow(dead_code)]
+    // #[allow(dead_code)]
+    // pub fn reflection_in_plane(&self, p: Matrix<T, 3, 1>) -> Matrix<T, 3, 1> {
+    //     let quat_p = Quat::init(p[[0, 0]], p[[1, 0]], p[[2, 0]], T::zero());
+    //     let temp = self * &quat_p;
+    //     let temp2 = &temp * self;
+    //     Matrix::from([[temp2.x()], [temp2.y()], [temp2.z()]])
+    // }
+    // #[allow(dead_code)]
+    // pub fn parallel_component_of_plane(&self, p: Matrix<T, 3, 1>) -> Matrix<T, 3, 1> {
+    //     let quat_p = Quat::init(p[[0, 0]], p[[1, 0]], p[[2, 0]], T::zero());
+    //     let temp = self * &quat_p;
+    //     let temp2 = &temp * self;
+    //     let temp3 = &quat_p + &temp2;
+    //     let temp4 = &temp3 * T::from(0.5).unwrap();
+    //     Matrix::from([[temp4.x()], [temp4.y()], [temp4.z()]])
+    // }
+    // #[allow(dead_code)]
+    // pub fn orthogonal_component_of_plane(&self, p: Matrix<T, 3, 1>) -> Matrix<T, 3, 1> {
+    //     let quat_p = Quat::init(p[[0, 0]], p[[1, 0]], p[[2, 0]], T::zero());
+    //     let temp = self * &quat_p;
+    //     let temp2 = &temp * self;
+    //     let temp3 = &quat_p - &temp2;
+    //     let temp4 = &temp3 * T::from(0.5).unwrap();
+    //     Matrix::from([[temp4.x()], [temp4.y()], [temp4.z()]])
+    // }
     pub fn add(&self, other: &Self) -> Self {
         Quat::init(
             self.x() + other.x(),
@@ -98,7 +96,6 @@ impl<T: Real + Default + NumAssign> Quat<T> {
             self.w() + other.w(),
         )
     }
-    #[allow(dead_code)]
     pub fn minus(&self, other: &Self) -> Self {
         Quat::init(
             self.x() - other.x(),
@@ -107,7 +104,6 @@ impl<T: Real + Default + NumAssign> Quat<T> {
             self.w() - other.w(),
         )
     }
-    #[allow(dead_code)]
     pub fn mul(&self, other: &Self) -> Self {
         Quat::init(
             self.w() * other.x() + self.x() * other.w() + self.y() * other.z()
@@ -123,15 +119,12 @@ impl<T: Real + Default + NumAssign> Quat<T> {
                 - self.z() * other.z(),
         )
     }
-    #[allow(dead_code)]
     pub fn norm_squared(&self) -> T {
         self.x() * self.x() + self.y() * self.y() + self.z() * self.z() + self.w() * self.w()
     }
-    #[allow(dead_code)]
     pub fn norm(&self) -> T {
         self.norm_squared().sqrt()
     }
-    #[allow(dead_code)]
     pub fn normalize(&self) -> Self {
         let l = self.norm();
         if l > T::zero() || l < T::zero() {
@@ -140,7 +133,6 @@ impl<T: Real + Default + NumAssign> Quat<T> {
             panic!("quat normalization unsuccessful.");
         }
     }
-    #[allow(dead_code)]
     pub fn normalized(&mut self) {
         let l = self.norm();
         if l > T::zero() || l < T::zero() {
@@ -152,7 +144,6 @@ impl<T: Real + Default + NumAssign> Quat<T> {
             panic!("quat normalization unsuccessful.");
         }
     }
-    #[allow(dead_code)]
     pub fn ln(&self) -> Self {
         let l = self.norm();
         let w_ln = self.w().ln();
@@ -166,7 +157,6 @@ impl<T: Real + Default + NumAssign> Quat<T> {
         let s = (w_ln / l).acos();
         Quat::init(vec_x * s, vec_y * s, vec_z * s, w_ln)
     }
-    #[allow(dead_code)]
     pub fn pow(&self, t: T) -> Self {
         let vec_length = (self.x() * self.x() + self.y() * self.y() + self.z() * self.z()).sqrt();
         assert!(vec_length != T::zero());
@@ -186,37 +176,30 @@ impl<T: Real + Default + NumAssign> Quat<T> {
             coeff * beta.cos(),
         )
     }
-    #[allow(dead_code)]
     pub fn negate(&self) -> Self {
         Quat::init(-self.x(), -self.y(), -self.z(), -self.w())
     }
-    #[allow(dead_code)]
     pub fn conjugate(&self) -> Self {
         Quat::init(-self.x(), -self.y(), -self.z(), self.w())
     }
-    #[allow(dead_code)]
     pub fn scale(&self, s: T) -> Self {
         Quat::init(self.x() * s, self.y() * s, self.z() * s, self.w() * s)
     }
-    #[allow(dead_code)]
     pub fn scaled(&mut self, s: T) {
         *self.x_mut() = self.x() * s;
         *self.y_mut() = self.y() * s;
         *self.z_mut() = self.z() * s;
         *self.w_mut() = self.w() * s;
     }
-    #[allow(dead_code)]
     pub fn inverse(&self) -> Self {
         let conj = self.conjugate();
         let norm = conj.norm_squared();
         assert!(norm != T::zero());
         &conj * (T::one() / norm)
     }
-    #[allow(dead_code)]
     pub fn dot(&self, other: &Self) -> T {
         self.x() * other.x() + self.y() * other.y() + self.z() * other.z() + self.w() * other.w()
     }
-    #[allow(dead_code)]
     pub fn lerp(start: Quat<T>, end: Quat<T>, t: T) -> Self {
         let clamp_upper = if t > T::one() { T::one() } else { t };
         let clamp = if clamp_upper < T::zero() {
@@ -231,7 +214,6 @@ impl<T: Real + Default + NumAssign> Quat<T> {
             start.w() * (T::one() - clamp) + end.w() * clamp,
         )
     }
-    #[allow(dead_code)]
     pub fn slerp(start: Quat<T>, end: Quat<T>, t: T) -> Self {
         let t_clamp_upper = if t > T::one() { T::one() } else { t };
         let t_clamp = if t_clamp_upper < T::zero() {

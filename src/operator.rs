@@ -1,5 +1,7 @@
+use core::ops::{
+    Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Rem, RemAssign, Sub, SubAssign,
+};
 use num_traits::NumAssign;
-use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, RemAssign, Sub, SubAssign};
 
 use crate::matrix::Matrix;
 use crate::scalar::Scalar;
@@ -156,16 +158,35 @@ delegate_num_ops_scalar!(Mul, mul);
 delegate_num_ops_scalar!(Div, div);
 delegate_num_ops_scalar!(Add, add);
 delegate_num_ops_scalar!(Sub, sub);
+delegate_num_ops_scalar!(Rem, rem);
 
 delegate_num_ops_scalar_left!(Mul, mul);
 delegate_num_ops_scalar_left!(Div, div);
 delegate_num_ops_scalar_left!(Add, add);
 delegate_num_ops_scalar_left!(Sub, sub);
+delegate_num_ops_scalar_left!(Rem, rem);
 
 delegate_num_ops_assign_scalar!(SubAssign, sub_assign);
 delegate_num_ops_assign_scalar!(AddAssign, add_assign);
 delegate_num_ops_assign_scalar!(MulAssign, mul_assign);
 delegate_num_ops_assign_scalar!(DivAssign, div_assign);
+delegate_num_ops_assign_scalar!(RemAssign, rem_assign);
+
+impl<T: Neg<Output = T> + NumAssign + Default + Copy, const ROW: usize, const COL: usize> Neg
+    for Matrix<T, ROW, COL>
+{
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        let mut m = Self::default();
+        for i in 0..ROW {
+            for j in 0..COL {
+                m[[i, j]] = -self[[i, j]];
+            }
+        }
+        m
+    }
+}
 
 #[test]
 fn test_rawarray_operator_dot() {
@@ -234,3 +255,55 @@ fn test_rawarray_operator_mul_scalar_left() {
     let ret = Scalar::from(b) * a;
     assert_eq!(ret, expect);
 }
+
+#[cfg(test)]
+#[quickcheck]
+fn matrix_negate(m: Matrix<f64, 4, 3>) -> bool {
+    use crate::matrix::matrix_approx_eq_float;
+
+    let ret = -m;
+    let mut expected = m.clone();
+    for i in 0..4 {
+        for j in 0..3 {
+            expected[[i, j]] = -expected[[i, j]];
+        }
+    }
+    matrix_approx_eq_float(&ret, &expected, 1e-7)
+}
+
+#[cfg(test)]
+use paste::paste;
+
+macro_rules! matrix_elem_op_check {
+    ($func:ident) => {
+        paste! {
+            mod [<matrix_elem_ $func>] {
+                #[quickcheck]
+                fn test((m1, m2): (crate::matrix::Matrix<f64, 4, 3>, crate::matrix::Matrix<f64, 4, 3>)) -> bool {
+                    use crate::matrix::matrix_approx_eq_float;
+
+                    use std::ops::*;
+                    let ret = m1.$func(m2);
+                    let mut expected = m1.clone();
+                    for i in 0..4 {
+                        for j in 0..3 {
+                            expected[[i, j]] = m1[[i, j]].$func(m2[[i, j]]);
+                        }
+                    }
+                    matrix_approx_eq_float(&ret, &expected, 1e-7)
+                }
+            }
+        }
+    };
+}
+
+#[cfg(test)]
+matrix_elem_op_check!(add);
+#[cfg(test)]
+matrix_elem_op_check!(sub);
+#[cfg(test)]
+matrix_elem_op_check!(mul);
+#[cfg(test)]
+matrix_elem_op_check!(div);
+#[cfg(test)]
+matrix_elem_op_check!(rem);

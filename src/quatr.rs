@@ -1,4 +1,5 @@
 use crate::matrix::*;
+#[cfg(test)]
 use crate::operator::Dot;
 use crate::quat::Quat;
 use crate::scalar::Scalar;
@@ -9,6 +10,19 @@ use std::ops::{Add, Mul, Sub};
 /// quaternion for rotation
 #[derive(Clone, Default, Debug)]
 pub struct QuatR<T: Real + NumAssign + Default + Clone + PartialEq>(pub(crate) Quat<T>);
+
+macro_rules! impl_quatr_partialeq_float {
+    ($type:ty) => {
+        impl PartialEq<QuatR<$type>> for QuatR<$type> {
+            fn eq(&self, other: &Self) -> bool {
+                (&self.0).eq(&other.0)
+            }
+        }
+    };
+}
+
+impl_quatr_partialeq_float!(f32);
+impl_quatr_partialeq_float!(f64);
 
 impl<T: Real + NumAssign + Default + Clone + PartialEq> From<Quat<T>> for QuatR<T> {
     fn from(q: Quat<T>) -> Self {
@@ -26,7 +40,7 @@ impl<T: Real + Default + NumAssign> Add for &QuatR<T> {
 impl<T: Real + Default + NumAssign> Add for QuatR<T> {
     type Output = QuatR<T>;
     fn add(self, rhs: Self) -> Self::Output {
-        self.add(rhs)
+        (&self).add(&rhs)
     }
 }
 
@@ -40,7 +54,7 @@ impl<'a, T: Real + Default + NumAssign> Mul<&'a QuatR<T>> for &'a QuatR<T> {
 impl<T: Real + Default + NumAssign> Mul<QuatR<T>> for QuatR<T> {
     type Output = QuatR<T>;
     fn mul(self, rhs: Self) -> Self::Output {
-        self.mul(rhs)
+        (&self).mul(&rhs)
     }
 }
 
@@ -82,7 +96,7 @@ impl<T: Real + Default + NumAssign> Sub for &QuatR<T> {
 impl<T: Real + Default + NumAssign> Sub for QuatR<T> {
     type Output = QuatR<T>;
     fn sub(self, rhs: Self) -> Self::Output {
-        self.minus(&rhs)
+        (&self).minus(&rhs)
     }
 }
 
@@ -93,7 +107,7 @@ impl<T: Real + Default + NumAssign> QuatR<T> {
     pub fn lerp(start: Quat<T>, end: Quat<T>, t: T) -> QuatR<T> {
         Self(Quat::lerp(start, end, t))
     }
-    fn slerp(start: Quat<T>, end: Quat<T>, t: T) -> QuatR<T> {
+    pub fn slerp(start: Quat<T>, end: Quat<T>, t: T) -> QuatR<T> {
         Self(Quat::slerp(start, end, t))
     }
     pub fn add(&self, other: &Self) -> Self {
@@ -293,7 +307,7 @@ fn test_quatr_convert_axis_angle_0() {
     let q = QuatR::init_from_axis_angle_degree(axis, 90.);
     let (a, angle) = q.to_axis_angle();
     assert_eq!(a, axis_normalize);
-    assert!((angle / PI * 180. - 90.).abs() < 1e-9);
+    assert_le!((angle / PI * 180. - 90.).abs(), 1e-9);
 }
 #[test]
 fn test_quatr_convert_axis_angle_1() {
@@ -306,12 +320,11 @@ fn test_quatr_convert_axis_angle_1() {
     let q = QuatR::init_from_axis_angle_degree(axis, 370.);
     let (a, angle) = q.to_axis_angle();
     // assert_eq!(a, axis_normalize);
-    matrix_approx_eq_float(&a, &axis_normalize, 1e-5);
+    assert_matrix_approx_eq_float(&a, &axis_normalize, 1e-5);
     assert_le!((angle / PI * 180. - 10.).abs(), 1e-4);
 }
 #[test]
 fn test_quatr_convert_axis_angle_2() {
-    use more_asserts::assert_le;
     use std::f32::consts::PI;
     //convert axis angle to quaternion representation and back
     let axis = Matrix::from([[1., 2., 3.]]).t();
@@ -357,7 +370,7 @@ fn test_quatr_rotate_point() {
 
     let vec_rotated = q.rotate_vector(p);
 
-    matrix_approx_eq_float(
+    assert_matrix_approx_eq_float(
         &vec_rotated,
         &Matrix::from([[
             vec_rotated_expected[[0, 0]],

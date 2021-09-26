@@ -119,7 +119,8 @@ impl<const ROW: usize, const COL: usize> Eq for Matrix<i8, ROW, COL> {}
 impl<const ROW: usize, const COL: usize> Eq for Matrix<i32, ROW, COL> {}
 impl<const ROW: usize, const COL: usize> Eq for Matrix<i64, ROW, COL> {}
 
-pub(crate) fn matrix_approx_eq_float<
+#[cfg(test)]
+pub(crate) fn assert_matrix_approx_eq_float<
     T: PartialEq + NumAssign + Copy + Default + Float + Debug,
     const ROW: usize,
     const COL: usize,
@@ -134,11 +135,39 @@ pub(crate) fn matrix_approx_eq_float<
         for j in 0..a.cols() {
             if a.0[i][j].is_finite() && !b.0[i][j].is_finite() {
                 assert!(false, "matrices not equal:\n{:#?}\n{:#?}", a, b);
+            } else if !a.0[i][j].is_finite() && b.0[i][j].is_finite() {
+                assert!(false, "matrices not equal:\n{:#?}\n{:#?}", a, b);
             } else if (a.0[i][j] - b.0[i][j]).abs() > tol {
                 assert!(false, "matrices not equal:\n{:#?}\n{:#?}", a, b);
             }
         }
     }
+}
+
+#[cfg(test)]
+pub(crate) fn matrix_approx_eq_float<
+    T: PartialEq + NumAssign + Copy + Default + Float + Debug,
+    const ROW: usize,
+    const COL: usize,
+>(
+    a: &Matrix<T, ROW, COL>,
+    b: &Matrix<T, ROW, COL>,
+    tol: T,
+) -> bool {
+    assert_eq!(a.cols(), b.cols());
+    assert_eq!(a.rows(), b.rows());
+    for i in 0..a.rows() {
+        for j in 0..a.cols() {
+            if a.0[i][j].is_finite() && !b.0[i][j].is_finite() {
+                return false;
+            } else if !a.0[i][j].is_finite() && b.0[i][j].is_finite() {
+                return false;
+            } else if (a.0[i][j] - b.0[i][j]).abs() > tol {
+                return false;
+            }
+        }
+    }
+    true
 }
 
 pub trait NumericAbs<F> {
@@ -599,4 +628,79 @@ fn test_inv_unsupported_size() {
     let a = Matrix::from([[0f32; 5]; 5]);
     let result = panic::catch_unwind(|| a.inv());
     assert!(result.is_err());
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug)]
+struct InvertibleMatrix<T: NumAssign + Copy + Default + 'static, const ROW: usize>(
+    pub Matrix<T, ROW, ROW>,
+);
+
+#[cfg(test)]
+impl<T: NumAssign + Copy + Default + Float + Debug, const ROW: usize> quickcheck::Arbitrary
+    for InvertibleMatrix<T, ROW>
+{
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        //generate invertible matrix using elementary matrices
+
+        let mut m = Matrix::<T, ROW, ROW>::eye();
+
+        //arbitrary number of elementary transforms to chain
+        for _ in 0..6 {
+            let iden = Matrix::<T, ROW, ROW>::eye();
+
+            let mut elementary_transform = Matrix::<T, ROW, ROW>::eye();
+
+            let selection_row = (0..ROW).collect::<Vec<_>>();
+            let src_row = g.choose(&selection_row).unwrap().to_owned();
+            let dest_row = g.choose(&selection_row).unwrap().to_owned();
+
+            let selection_multiplier = (-3..5).filter(|&x| x != 0).collect::<Vec<_>>();
+            let multiplier: i32 = g.choose(&selection_multiplier).unwrap().to_owned();
+
+            for col in 0..ROW {
+                let val = T::from(multiplier).unwrap() * iden[[src_row, col]];
+                // println!("{:?}", val);
+                if src_row == dest_row {
+                    elementary_transform[[dest_row, col]] = val;
+                } else {
+                    elementary_transform[[dest_row, col]] = iden[[dest_row, col]] + val;
+                }
+            }
+
+            use crate::operator::Dot;
+            m = m.dot(&elementary_transform);
+        }
+        Self(m)
+    }
+}
+
+#[cfg(test)]
+#[quickcheck]
+fn matrix_invert_property_test_f64_2x2(m: InvertibleMatrix<f64, 2>) -> bool {
+    use crate::operator::Dot;
+
+    let inverse = m.0.inv();
+    let expected_eye = inverse.dot(m.0);
+    matrix_approx_eq_float(&expected_eye, &Matrix::<f64, 2, 2>::eye(), 1e-5)
+}
+
+#[cfg(test)]
+#[quickcheck]
+fn matrix_invert_property_test_f64_3x3(m: InvertibleMatrix<f64, 3>) -> bool {
+    use crate::operator::Dot;
+
+    let inverse = m.0.inv();
+    let expected_eye = inverse.dot(m.0);
+    matrix_approx_eq_float(&expected_eye, &Matrix::<f64, 3, 3>::eye(), 1e-5)
+}
+
+#[cfg(test)]
+#[quickcheck]
+fn matrix_invert_property_test_f64_4x4(m: InvertibleMatrix<f64, 4>) -> bool {
+    use crate::operator::Dot;
+
+    let inverse = m.0.inv();
+    let expected_eye = inverse.dot(m.0);
+    matrix_approx_eq_float(&expected_eye, &Matrix::<f64, 4, 4>::eye(), 1e-5)
 }

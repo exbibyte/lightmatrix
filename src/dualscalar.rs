@@ -1,6 +1,6 @@
 use std::ops::{Add, Div, Mul, Sub};
 
-use num_traits::{float::FloatConst, real::Real, NumAssign};
+use num_traits::{real::Real, NumAssign};
 
 ///(real, img) pair where img*img=0, img~=0
 #[derive(Debug, Clone, PartialEq)]

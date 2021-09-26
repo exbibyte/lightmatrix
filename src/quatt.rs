@@ -1,14 +1,28 @@
 use crate::matrix::*;
+#[cfg(test)]
 use crate::operator::Dot;
 use crate::quat::Quat;
 use crate::scalar::Scalar;
 use delegate::delegate;
-use num_traits::{float::FloatConst, real::Real, NumAssign};
+use num_traits::{real::Real, NumAssign};
 use std::ops::{Add, Mul, Sub};
 
 /// quaternion for translation
 #[derive(Clone, Default, Debug)]
 pub struct QuatT<T: Real + NumAssign + Default + Clone + PartialEq>(pub(crate) Quat<T>);
+
+macro_rules! impl_quatt_partialeq_float {
+    ($type:ty) => {
+        impl PartialEq<QuatT<$type>> for QuatT<$type> {
+            fn eq(&self, other: &Self) -> bool {
+                (&self.0).eq(&other.0)
+            }
+        }
+    };
+}
+
+impl_quatt_partialeq_float!(f32);
+impl_quatt_partialeq_float!(f64);
 
 impl<T: Real + NumAssign + Default + Clone + PartialEq> From<Quat<T>> for QuatT<T> {
     fn from(q: Quat<T>) -> Self {
@@ -26,7 +40,7 @@ impl<T: Real + Default + NumAssign> Add for &QuatT<T> {
 impl<T: Real + Default + NumAssign> Add for QuatT<T> {
     type Output = QuatT<T>;
     fn add(self, rhs: Self) -> Self::Output {
-        self.add(rhs)
+        (&self).add(&rhs)
     }
 }
 
@@ -40,7 +54,7 @@ impl<'a, T: Real + Default + NumAssign> Mul<&'a QuatT<T>> for &'a QuatT<T> {
 impl<T: Real + Default + NumAssign> Mul for QuatT<T> {
     type Output = QuatT<T>;
     fn mul(self, rhs: Self) -> Self::Output {
-        self.mul(rhs)
+        (&self).mul(&rhs)
     }
 }
 
@@ -82,7 +96,7 @@ impl<T: Real + Default + NumAssign> Sub for &QuatT<T> {
 impl<T: Real + Default + NumAssign> Sub for QuatT<T> {
     type Output = QuatT<T>;
     fn sub(self, rhs: Self) -> Self::Output {
-        self.minus(&rhs)
+        (&self).minus(&rhs)
     }
 }
 
@@ -93,7 +107,7 @@ impl<T: Real + Default + NumAssign> QuatT<T> {
     pub fn lerp(start: Quat<T>, end: Quat<T>, t: T) -> QuatT<T> {
         Self(Quat::lerp(start, end, t))
     }
-    fn slerp(start: Quat<T>, end: Quat<T>, t: T) -> QuatT<T> {
+    pub fn slerp(start: Quat<T>, end: Quat<T>, t: T) -> QuatT<T> {
         Self(Quat::slerp(start, end, t))
     }
     pub fn add(&self, other: &Self) -> Self {

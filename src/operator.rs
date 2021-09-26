@@ -6,7 +6,7 @@ use crate::scalar::Scalar;
 
 pub trait Dot<Rhs> {
     type R;
-    fn dot(&self, rhs: &Rhs) -> Self::R;
+    fn dot(&self, rhs: Rhs) -> Self::R;
 }
 
 // pub fn dot2<Lhs, Rhs>(lhs: &Lhs, rhs: &Rhs) -> <Lhs as Dot<Rhs>>::R
@@ -17,10 +17,27 @@ pub trait Dot<Rhs> {
 // }
 
 impl<T: NumAssign + Copy + Default, const ROW_1: usize, const COL_1: usize, const COL_2: usize>
-    Dot<Matrix<T, COL_1, COL_2>> for Matrix<T, ROW_1, COL_1>
+    Dot<&Matrix<T, COL_1, COL_2>> for Matrix<T, ROW_1, COL_1>
 {
     type R = Matrix<T, ROW_1, COL_2>;
     fn dot(&self, other: &Matrix<T, COL_1, COL_2>) -> Matrix<T, ROW_1, COL_2> {
+        let mut ret = Matrix([[T::default(); COL_2]; ROW_1]);
+        for i in 0..ROW_1 {
+            for j in 0..COL_2 {
+                for k in 0..COL_1 {
+                    ret[[i, j]] += self[[i, k]] * other[[k, j]];
+                }
+            }
+        }
+        ret
+    }
+}
+
+impl<T: NumAssign + Copy + Default, const ROW_1: usize, const COL_1: usize, const COL_2: usize>
+    Dot<Matrix<T, COL_1, COL_2>> for Matrix<T, ROW_1, COL_1>
+{
+    type R = Matrix<T, ROW_1, COL_2>;
+    fn dot(&self, other: Matrix<T, COL_1, COL_2>) -> Matrix<T, ROW_1, COL_2> {
         let mut ret = Matrix([[T::default(); COL_2]; ROW_1]);
         for i in 0..ROW_1 {
             for j in 0..COL_2 {

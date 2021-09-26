@@ -7,15 +7,27 @@ use std::ops::IndexMut;
 
 // use crate::matrix::Matrix;
 use crate::matrix::*;
-use crate::operator::Dot;
 use crate::scalar::Scalar;
 
 use std::ops::{Add, Mul, Sub};
 
-use num_traits::{float::FloatConst, real::Real, NumAssign};
+use num_traits::{real::Real, NumAssign};
 
 #[derive(Clone, Debug)]
-pub struct Quat<T: Real + NumAssign + Default + Clone + PartialEq>(pub Matrix<T, 1, 4>);
+pub struct Quat<T: Real + NumAssign + Default + Clone>(pub Matrix<T, 1, 4>);
+
+macro_rules! impl_quat_partialeq_float {
+    ($type:ty) => {
+        impl PartialEq<Quat<$type>> for Quat<$type> {
+            fn eq(&self, other: &Self) -> bool {
+                (&self.0).eq(&other.0)
+            }
+        }
+    };
+}
+
+impl_quat_partialeq_float!(f32);
+impl_quat_partialeq_float!(f64);
 
 impl<T: Real + NumAssign + Default> Default for Quat<T> {
     fn default() -> Quat<T> {
@@ -273,7 +285,7 @@ impl<T: Real + Default + NumAssign> Add for &Quat<T> {
 impl<T: Real + Default + NumAssign> Add for Quat<T> {
     type Output = Quat<T>;
     fn add(self, rhs: Self) -> Self::Output {
-        self.add(rhs)
+        (&self).add(&rhs)
     }
 }
 
@@ -302,6 +314,34 @@ impl<T: Real + Default + NumAssign> Mul<T> for Quat<T> {
     type Output = Quat<T>;
     fn mul(self, rhs: T) -> Self::Output {
         self.scale(rhs)
+    }
+}
+
+impl<T: Real + Default + NumAssign> Mul<Scalar<T>> for Quat<T> {
+    type Output = Quat<T>;
+    fn mul(self, rhs: Scalar<T>) -> Self::Output {
+        self.scale(rhs.0)
+    }
+}
+
+impl<T: Real + Default + NumAssign> Mul<&Scalar<T>> for Quat<T> {
+    type Output = Quat<T>;
+    fn mul(self, rhs: &Scalar<T>) -> Self::Output {
+        self.scale(rhs.0)
+    }
+}
+
+impl<T: Real + Default + NumAssign> Mul<Scalar<T>> for &Quat<T> {
+    type Output = Quat<T>;
+    fn mul(self, rhs: Scalar<T>) -> Self::Output {
+        self.scale(rhs.0)
+    }
+}
+
+impl<T: Real + Default + NumAssign> Mul<&Scalar<T>> for &Quat<T> {
+    type Output = Quat<T>;
+    fn mul(self, rhs: &Scalar<T>) -> Self::Output {
+        self.scale(rhs.0)
     }
 }
 
@@ -350,9 +390,87 @@ fn convert_float() {
     assert_eq!(0.55f64, num2);
 }
 
-#[test]
-fn test_mul_scalar_by_quat() {
-    let q = Quat::init(1., 2., 3., 4.);
-    let q2 = Scalar(5.) * q;
-    let q3 = q2 * 0.5;
+#[cfg(test)]
+#[derive(Clone, Debug)]
+struct RandQuat<T: Real + NumAssign + Default>(pub Quat<T>);
+
+#[cfg(test)]
+impl<T: Real + Default + NumAssign + 'static> quickcheck::Arbitrary for RandQuat<T> {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        let selection = (-100..100).map(|x| T::from(x).unwrap()).collect::<Vec<_>>();
+
+        let q = Quat::init(
+            g.choose(&selection).unwrap().to_owned(),
+            g.choose(&selection).unwrap().to_owned(),
+            g.choose(&selection).unwrap().to_owned(),
+            g.choose(&selection).unwrap().to_owned(),
+        );
+
+        Self(q)
+    }
+}
+
+#[cfg(test)]
+#[quickcheck]
+fn quat_mul_scalar_by_quat(m: RandQuat<f64>) -> bool {
+    let q = m.0;
+    let q2 = Scalar(5.) * &q;
+    matrix_approx_eq_float(
+        &q2.0,
+        &Matrix::<f64, 1, 4>::from([[
+            5. * q.0[[0, 0]],
+            5. * q.0[[0, 1]],
+            5. * q.0[[0, 2]],
+            5. * q.0[[0, 3]],
+        ]]),
+        1e-5,
+    )
+}
+
+#[cfg(test)]
+#[quickcheck]
+fn quat_mul_quat_by_float(m: RandQuat<f64>) -> bool {
+    let q = m.0;
+    let q2 = &q * 5.;
+    matrix_approx_eq_float(
+        &q2.0,
+        &Matrix::<f64, 1, 4>::from([[
+            5. * q.0[[0, 0]],
+            5. * q.0[[0, 1]],
+            5. * q.0[[0, 2]],
+            5. * q.0[[0, 3]],
+        ]]),
+        1e-5,
+    )
+}
+
+#[cfg(test)]
+#[quickcheck]
+fn quat_mul_quat_by_scalar(m: RandQuat<f64>) -> bool {
+    let q = m.0;
+    let q2 = &q * &Scalar(5f64);
+    matrix_approx_eq_float(
+        &q2.0,
+        &Matrix::<f64, 1, 4>::from([[
+            5. * q.0[[0, 0]],
+            5. * q.0[[0, 1]],
+            5. * q.0[[0, 2]],
+            5. * q.0[[0, 3]],
+        ]]),
+        1e-5,
+    )
+}
+
+#[cfg(test)]
+#[quickcheck]
+fn quat_partial_eq_same(m: RandQuat<f64>) -> bool {
+    m.0.eq(&m.0)
+}
+
+#[cfg(test)]
+#[quickcheck]
+fn quat_partial_eq_different((mut m1, mut m2): (RandQuat<f64>, RandQuat<f64>)) -> bool {
+    m1.0 .0[[0, 0]] = 1.0;
+    m2.0 .0[[0, 0]] = 2.0;
+    !m1.0.eq(&m2.0)
 }

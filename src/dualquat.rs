@@ -7,7 +7,7 @@ use std::ops::IndexMut;
 #[allow(unused_imports)]
 use std::ops::{Add, Mul, Sub};
 
-use num_traits::{float::Float, float::FloatConst, real::Real, NumAssign};
+use num_traits::{float::Float, real::Real, NumAssign};
 
 use crate::dualscalar::*;
 use crate::matrix::*;
@@ -19,6 +19,19 @@ use crate::quatt::*;
 /// represents rot, translation pair
 #[derive(Clone, Default, Debug)]
 pub struct DualQuat<T: Float + NumAssign + Default + Clone + PartialEq>(QuatR<T>, QuatT<T>);
+
+macro_rules! impl_dualquat_partialeq_float {
+    ($type:ty) => {
+        impl PartialEq<DualQuat<$type>> for DualQuat<$type> {
+            fn eq(&self, other: &Self) -> bool {
+                (&self.0).eq(&other.0) && (&self.1).eq(&other.1)
+            }
+        }
+    };
+}
+
+impl_dualquat_partialeq_float!(f32);
+impl_dualquat_partialeq_float!(f64);
 
 impl<T: Float + Default + NumAssign> DualQuat<T> {
     #[allow(dead_code)]
@@ -142,7 +155,7 @@ impl<T: Float + Default + NumAssign> DualQuat<T> {
         ]])
         .t();
 
-        let mut invr = T::one() / vr.norm_l2();
+        let invr = T::one() / vr.norm_l2();
         // dbg!(&diff);
         // dbg!(&invr);
         if invr.is_infinite() {
@@ -167,17 +180,17 @@ impl<T: Float + Default + NumAssign> DualQuat<T> {
         pitch *= e;
 
         //convert back
-        let sinAngle = (T::from(0.5).unwrap() * angle).sin();
-        let cosAngle = (T::from(0.5).unwrap() * angle).cos();
-        let temp = direction * sinAngle;
-        let real = QuatR::init(temp[[0, 0]], temp[[1, 0]], temp[[2, 0]], cosAngle);
+        let sin_angle = (T::from(0.5).unwrap() * angle).sin();
+        let cos_angle = (T::from(0.5).unwrap() * angle).cos();
+        let temp = direction * sin_angle;
+        let real = QuatR::init(temp[[0, 0]], temp[[1, 0]], temp[[2, 0]], cos_angle);
 
-        let temp2 = (moment * sinAngle) + (direction * pitch * T::from(0.5).unwrap() * cosAngle);
+        let temp2 = (moment * sin_angle) + (direction * pitch * T::from(0.5).unwrap() * cos_angle);
         let dual = QuatT::init(
             temp2[[0, 0]],
             temp2[[1, 0]],
             temp2[[2, 0]],
-            -pitch * T::from(0.5).unwrap() * sinAngle,
+            -pitch * T::from(0.5).unwrap() * sin_angle,
         );
 
         DualQuat(real, dual)
@@ -210,7 +223,7 @@ impl<T: Float + Default + NumAssign> DualQuat<T> {
     //         d
     //     }
     // }
-    fn get_screw_parameters(
+    pub fn get_screw_parameters(
         &self,
         screwaxis: &mut Matrix<T, 3, 1>,
         moment: &mut Matrix<T, 3, 1>,
@@ -259,7 +272,7 @@ impl<T: Float + Default + NumAssign> DualQuat<T> {
         }
     }
 
-    fn set_screw_parameters(
+    pub fn set_screw_parameters(
         &mut self,
         screwaxis: Matrix<T, 3, 1>,
         moment: Matrix<T, 3, 1>,

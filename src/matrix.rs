@@ -31,6 +31,86 @@ impl<T: NumAssign + Copy + Default, const ROW: usize, const COL: usize>
     }
 }
 
+pub struct MatrixSliceMut<'a, T: NumAssign + Copy + Default, const ROW: usize, const COL: usize> {
+    pub matrix: &'a mut Matrix<T, ROW, COL>,
+    pub range_rows: Range<usize>,
+    pub range_cols: Range<usize>,
+}
+
+pub struct MatrixSlice<'a, T: NumAssign + Copy + Default, const ROW: usize, const COL: usize> {
+    pub matrix: &'a Matrix<T, ROW, COL>,
+    pub range_rows: Range<usize>,
+    pub range_cols: Range<usize>,
+}
+
+impl<'a, T: NumAssign + Copy + Default, const ROW: usize, const COL: usize>
+    From<MatrixSliceMut<'a, T, ROW, COL>> for MatrixSlice<'a, T, ROW, COL>
+{
+    fn from(m: MatrixSliceMut<'a, T, ROW, COL>) -> Self {
+        Self {
+            matrix: m.matrix,
+            range_rows: m.range_rows,
+            range_cols: m.range_cols,
+        }
+    }
+}
+
+/// get a mutable slice of the input matrix
+impl<'a, T: 'a + NumAssign + Copy + Default, const ROW: usize, const COL: usize>
+    From<(&'a mut Matrix<T, ROW, COL>, [Range<usize>; 2])> for MatrixSliceMut<'a, T, ROW, COL>
+{
+    fn from(
+        (m, [range_rows, range_cols]): (&'a mut Matrix<T, ROW, COL>, [Range<usize>; 2]),
+    ) -> Self {
+        Self {
+            matrix: m,
+            range_rows: range_rows,
+            range_cols: range_cols,
+        }
+    }
+}
+
+/// get a slice of the input matrix
+impl<'a, T: 'a + NumAssign + Copy + Default, const ROW: usize, const COL: usize>
+    From<(&'a Matrix<T, ROW, COL>, [Range<usize>; 2])> for MatrixSlice<'a, T, ROW, COL>
+{
+    fn from((m, [range_rows, range_cols]): (&'a Matrix<T, ROW, COL>, [Range<usize>; 2])) -> Self {
+        Self {
+            matrix: m,
+            range_rows: range_rows,
+            range_cols: range_cols,
+        }
+    }
+}
+
+impl<'a, T: NumAssign + Copy + Default, const ROW: usize, const COL: usize>
+    MatrixSliceMut<'a, T, ROW, COL>
+{
+    pub fn assign<const ROW_OTHER: usize, const COL_OTHER: usize>(
+        &mut self,
+        other: MatrixSlice<'a, T, ROW_OTHER, COL_OTHER>,
+    ) {
+        assert!(
+            self.range_rows.end - self.range_rows.start
+                <= other.range_rows.end - other.range_rows.start,
+        );
+
+        assert!(
+            self.range_cols.end - self.range_cols.start
+                <= other.range_cols.end - other.range_cols.start,
+        );
+
+        for (i_idx, i) in (self.range_rows.start..self.range_rows.end).enumerate() {
+            for (j_idx, j) in (self.range_cols.start..self.range_cols.end).enumerate() {
+                self.matrix[[i, j]] = other.matrix[[
+                    i_idx + other.range_rows.start,
+                    j_idx + other.range_cols.start,
+                ]];
+            }
+        }
+    }
+}
+
 /// get a 3x1 subregion of the input matrix
 impl<T: NumAssign + Copy + Default, const ROW: usize, const COL: usize>
     From<(Matrix<T, ROW, COL>, [Range<usize>; 2])> for Matrix<T, 3, 1>
@@ -833,5 +913,52 @@ fn matrix_subregion_unmatched_shape() {
     let m = Matrix::<f64, 4, 1>::default();
     use std::panic;
     let result = panic::catch_unwind(|| Matrix::<f64, 3, 1>::from((m, [(0..4), (0..1)])));
+    assert!(result.is_err());
+}
+
+#[cfg(test)]
+#[quickcheck]
+fn matrix_slice_assign((m1, mut m2): (Matrix<f64, 15, 10>, Matrix<f64, 15, 10>)) -> bool {
+    let src = MatrixSlice::<f64, 15, 10>::from((&m1, [(2..5), (3..6)]));
+    let mut dest = MatrixSliceMut::<f64, 15, 10>::from((&mut m2, [(5..8), (7..10)]));
+    dest.assign(src);
+    let mut check = true;
+    for (i_idx, i) in (5..8).enumerate() {
+        for (j_idx, j) in (7..10).enumerate() {
+            check &= m2[[i, j]] == m1[[2 + i_idx, 3 + j_idx]];
+        }
+    }
+    check
+}
+
+#[cfg(test)]
+#[quickcheck]
+fn matrix_slice_assign_from_larget_region(
+    (m1, mut m2): (Matrix<f64, 15, 10>, Matrix<f64, 15, 15>),
+) -> bool {
+    let src = MatrixSlice::from((&m1, [(2..15), (3..15)]));
+    let mut dest = MatrixSliceMut::from((&mut m2, [(5..8), (7..10)]));
+    dest.assign(src);
+    let mut check = true;
+    for (i_idx, i) in (5..8).enumerate() {
+        for (j_idx, j) in (7..10).enumerate() {
+            check &= m2[[i, j]] == m1[[2 + i_idx, 3 + j_idx]];
+        }
+    }
+    check
+}
+
+#[test]
+fn matrix_slice_assign_dest_shape_too_big() {
+    use std::panic;
+    let result = panic::catch_unwind(|| {
+        let (m1, mut m2) = (
+            Matrix::<f64, 15, 10>::default(),
+            Matrix::<f64, 15, 15>::default(),
+        );
+        let src = MatrixSlice::from((&m1, [(2..5), (3..6)]));
+        let mut dest = MatrixSliceMut::from((&mut m2, [(5..9), (7..10)]));
+        dest.assign(src)
+    });
     assert!(result.is_err());
 }

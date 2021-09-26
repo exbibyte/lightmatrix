@@ -274,6 +274,7 @@ fn matrix_negate(m: Matrix<f64, 4, 3>) -> bool {
 #[cfg(test)]
 use paste::paste;
 
+#[cfg(test)]
 macro_rules! matrix_elem_op_check {
     ($func:ident) => {
         paste! {

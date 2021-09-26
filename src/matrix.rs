@@ -82,7 +82,21 @@ impl<'a, T: 'a + NumAssign + Copy + Default, const ROW: usize, const COL: usize>
         }
     }
 }
-
+/// # Copy values from one slice to another.
+/// # Example
+/// ```
+/// use lightmatrix::matrix::*;
+/// let (mut m1, mut m2) = (
+///     Matrix::<f64, 15, 10>::default(),
+///     Matrix::<f64, 15, 15>::default(),
+/// );
+///
+/// //fill matrices with values...
+///
+/// let src = MatrixSlice::from((&m1, [(2..15), (3..15)]));
+/// let mut dest = MatrixSliceMut::from((&mut m2, [(5..8), (7..10)]));
+/// dest.assign(src);
+/// ```
 impl<'a, T: NumAssign + Copy + Default, const ROW: usize, const COL: usize>
     MatrixSliceMut<'a, T, ROW, COL>
 {

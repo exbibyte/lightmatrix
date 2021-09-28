@@ -560,7 +560,6 @@ fn matrix_slice_clone(mut m1: Matrix<i64, 15, 15>) -> bool {
         MatrixSlice::from(slice)
     };
     let mut check = true;
-    use std::ops::Index;
     let copy = Matrix::<i64, 10, 10>::from(&view);
     for i in 0..10 {
         for j in 0..10 {

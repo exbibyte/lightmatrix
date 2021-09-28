@@ -1,4 +1,3 @@
-use core::ops::Range;
 use num_traits::{float::Float, real::Real, NumAssign, Signed};
 use std::ops::{Deref, DerefMut};
 use std::ops::{Index, IndexMut};

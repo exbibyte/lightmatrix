@@ -70,15 +70,28 @@ macro_rules! impl_matrix_slice_mut {
                     }
                 }
             }
-            /// get a slice of the input matrix
-            ///
-            /// ```compile_fail
+            /// Get a slice of the input matrix
+            /// # Example
+            /// ```
+            /// use lightmatrix::{matrix::*,matrix_slice::*};
             /// let (m1, mut m2) = (
             ///     Matrix::<f64, 15, 10>::default(),
             ///     Matrix::<f64, 15, 15>::default(),
             /// );
-            /// let src = MatrixSlice::from((&m1, [(2..15), (3..15)]));
-            /// let mut dest = MatrixSliceMut::from((&mut m2, [(5..8), (7..10)]));
+            /// let src = MatrixSlice::from((&m1, ((2..5), (3..6))));
+            /// let mut dest = MatrixSliceMut::from((&mut m2, ((5..8), (7..10))));
+            /// dest.assign(src);
+            /// ```
+            ///
+            /// # Example of failure
+            /// ```compile_fail
+            /// use lightmatrix::{matrix::*,matrix_slice::*};
+            /// let (m1, mut m2) = (
+            ///     Matrix::<f64, 15, 10>::default(),
+            ///     Matrix::<f64, 15, 15>::default(),
+            /// );
+            /// let src = MatrixSlice::from((&m1, ((2..15), (3..15))));
+            /// let mut dest = MatrixSliceMut::from((&mut m2, ((5..8), (7..10))));
             /// drop(m2);
             /// dest.assign(src);
             impl<'a, T: 'a + NumAssign + Copy + Default, const ROW: usize, const COL: usize>

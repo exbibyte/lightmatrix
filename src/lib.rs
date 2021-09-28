@@ -8,6 +8,7 @@ extern crate quickcheck_macros;
 pub mod matrix;
 pub mod dualquat;
 pub mod dualscalar;
+pub mod matrix_slice;
 pub mod operator;
 pub mod quat;
 pub mod quatr;

@@ -64,8 +64,8 @@ pub fn dot<
     const ROW_RET: usize,
     const COL_RET: usize,
 >(
-    this: MatrixSlice<'a, T, COL_1, ROW_1>,
-    other: MatrixSlice<'a, T, COL_2, COL_2>,
+    this: &MatrixSlice<'a, T, COL_1, ROW_1>,
+    other: &MatrixSlice<'a, T, ROW_2, COL_2>,
 ) -> Matrix<T, ROW_RET, COL_RET> {
     let mut ret = Matrix([[T::default(); COL_RET]; ROW_RET]);
 
@@ -416,6 +416,17 @@ fn test_rawarray_operator_dot_vec_float() {
     let b = Matrix([[1f32], [4f32], [7f32]]);
     let expect = Matrix([[18f32], [54f32], [90f32]]);
     assert_eq!(a.dot(&b), expect);
+}
+
+#[test]
+fn test_matrix_slice_operator_dot() {
+    let a = Matrix([[0i32, 1i32, 2i32], [3i32, 4i32, 5i32], [6i32, 7i32, 8i32]]);
+    let b = Matrix([[1i32, 2i32, 3i32], [4i32, 5i32, 6i32], [7i32, 8i32, 9i32]]);
+    let slice_a = MatrixSlice::from((&a, ((0..2), (0..2))));
+    let slice_b = MatrixSlice::from((&b, ((0..2), (0..2))));
+    let expect = Matrix([[4i32, 5i32], [19i32, 26i32]]);
+    let ret: Matrix<i32, 2, 2> = dot(&slice_a, &slice_b);
+    assert_eq!(ret, expect);
 }
 
 #[test]

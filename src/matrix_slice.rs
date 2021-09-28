@@ -14,14 +14,27 @@ pub(crate) enum RangeType {
     RangeToInclusive(RangeToInclusive<usize>),
 }
 
+#[derive(Debug)]
 pub struct MatrixSliceMut<'a, T: NumAssign + Copy + Default, const ROW: usize, const COL: usize> {
     pub matrix: &'a mut Matrix<T, ROW, COL>,
     range: (RangeType, RangeType),
 }
 
+#[derive(Debug)]
 pub struct MatrixSlice<'a, T: NumAssign + Copy + Default, const ROW: usize, const COL: usize> {
     pub matrix: &'a Matrix<T, ROW, COL>,
     range: (RangeType, RangeType),
+}
+
+impl<'a, T: NumAssign + Copy + Default, const ROW: usize, const COL: usize> Clone
+    for MatrixSlice<'a, T, ROW, COL>
+{
+    fn clone(&self) -> Self {
+        Self {
+            matrix: self.matrix,
+            range: self.range.clone(),
+        }
+    }
 }
 
 impl<'a, T: NumAssign + Copy + Default, const ROW: usize, const COL: usize>
@@ -139,7 +152,7 @@ impl_matrix_slice_outer!(RangeToInclusive<usize>, RangeType::RangeToInclusive);
 impl_matrix_slice_outer!(RangeInclusive<usize>, RangeType::RangeInclusive);
 
 #[derive(Default)]
-struct RangeInfo {
+pub(crate) struct RangeInfo {
     pub start: usize,
     pub count: usize,
 }
@@ -152,9 +165,9 @@ impl<
         const COL_DEST: usize,
         const ROW: usize,
         const COL: usize,
-    > From<MatrixSliceMut<'a, T, ROW, COL>> for Matrix<T, ROW_DEST, COL_DEST>
+    > From<&'a MatrixSliceMut<'a, T, ROW, COL>> for Matrix<T, ROW_DEST, COL_DEST>
 {
-    fn from(m: MatrixSliceMut<'a, T, ROW, COL>) -> Self {
+    fn from(m: &MatrixSliceMut<'a, T, ROW, COL>) -> Self {
         let mut ret = Self::default();
 
         let (range_rows, range_cols) = m.get_range();
@@ -183,9 +196,9 @@ impl<
         const COL: usize,
         const ROW_DEST: usize,
         const COL_DEST: usize,
-    > From<MatrixSlice<'a, T, ROW, COL>> for Matrix<T, ROW_DEST, COL_DEST>
+    > From<&'a MatrixSlice<'a, T, ROW, COL>> for Matrix<T, ROW_DEST, COL_DEST>
 {
-    fn from(m: MatrixSlice<'a, T, ROW, COL>) -> Self {
+    fn from(m: &MatrixSlice<'a, T, ROW, COL>) -> Self {
         let mut ret = Self::default();
 
         let (range_rows, range_cols) = m.get_range();
@@ -251,7 +264,7 @@ impl<'a, T: NumAssign + Copy + Default, const ROW: usize, const COL: usize>
             }
         }
     }
-    fn get_range(&'a self) -> (RangeInfo, RangeInfo) {
+    pub(crate) fn get_range(&'a self) -> (RangeInfo, RangeInfo) {
         let mut ranges: [RangeInfo; 2] = Default::default();
         for (idx, r) in (&[&self.range.0, &self.range.1]).iter().enumerate() {
             let range_count: usize;
@@ -302,7 +315,7 @@ impl<'a, T: NumAssign + Copy + Default, const ROW: usize, const COL: usize>
 impl<'a, T: NumAssign + Copy + Default, const ROW: usize, const COL: usize>
     MatrixSlice<'a, T, ROW, COL>
 {
-    fn get_range(&'a self) -> (RangeInfo, RangeInfo) {
+    pub(crate) fn get_range(&'a self) -> (RangeInfo, RangeInfo) {
         let mut ranges: [RangeInfo; 2] = Default::default();
         for (idx, r) in (&[&self.range.0, &self.range.1]).iter().enumerate() {
             let range_count: usize;
@@ -518,7 +531,7 @@ fn matrix_slice_combo_range_inclusive_and_range_to_inclusive(
 #[quickcheck]
 fn matrix_slice_to_owned_matrix(m1: Matrix<i64, 15, 15>) -> bool {
     let slice = MatrixSlice::from((&m1, ((0..10), (0..10))));
-    let owned: Matrix<i64, 10, 10> = Matrix::from(slice);
+    let owned: Matrix<i64, 10, 10> = Matrix::from(&slice);
     let mut check = true;
     for i in 0..10 {
         for j in 0..10 {
@@ -534,7 +547,31 @@ fn matrix_slice_unmatched_shape() {
     use std::panic;
     let result = panic::catch_unwind(|| {
         let slice = MatrixSlice::from((&m, ((0..4), (0..1))));
-        let _owned: Matrix<i64, 4, 3> = Matrix::from(slice);
+        let _owned: Matrix<i64, 4, 3> = Matrix::from(&slice);
     });
     assert!(result.is_err());
+}
+
+#[cfg(test)]
+#[quickcheck]
+fn matrix_slice_clone(mut m1: Matrix<i64, 15, 15>) -> bool {
+    let view = {
+        let slice = MatrixSliceMut::from((&mut m1, ((0..10), (0..10))));
+        MatrixSlice::from(slice)
+    };
+    let mut check = true;
+    use std::ops::Index;
+    let copy = Matrix::<i64, 10, 10>::from(&view);
+    for i in 0..10 {
+        for j in 0..10 {
+            check &= m1[[i, j]] == copy[[i, j]];
+        }
+    }
+    m1 *= 2;
+    for i in 0..10 {
+        for j in 0..10 {
+            check &= m1[[i, j]] == 2 * copy[[i, j]];
+        }
+    }
+    check
 }

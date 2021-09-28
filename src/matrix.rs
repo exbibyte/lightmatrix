@@ -1,11 +1,13 @@
 use num_traits::{float::Float, real::Real, NumAssign, Signed};
 
-use core::ops::Range;
+use core::ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
 use std::ops::{Deref, DerefMut};
 use std::ops::{Index, IndexMut};
 
 // #[cfg(test)]
 use std::fmt::Debug;
+
+use paste::paste;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Matrix<T: NumAssign + Copy + Default, const ROW: usize, const COL: usize>(
@@ -31,16 +33,24 @@ impl<T: NumAssign + Copy + Default, const ROW: usize, const COL: usize>
     }
 }
 
+#[derive(Debug, Clone)]
+pub(crate) enum RangeType {
+    Range(Range<usize>),
+    RangeFrom(RangeFrom<usize>),
+    RangeFull(RangeFull),
+    RangeInclusive(RangeInclusive<usize>),
+    RangeTo(RangeTo<usize>),
+    RangeToInclusive(RangeToInclusive<usize>),
+}
+
 pub struct MatrixSliceMut<'a, T: NumAssign + Copy + Default, const ROW: usize, const COL: usize> {
     pub matrix: &'a mut Matrix<T, ROW, COL>,
-    pub range_rows: Range<usize>,
-    pub range_cols: Range<usize>,
+    range: (RangeType, RangeType),
 }
 
 pub struct MatrixSlice<'a, T: NumAssign + Copy + Default, const ROW: usize, const COL: usize> {
     pub matrix: &'a Matrix<T, ROW, COL>,
-    pub range_rows: Range<usize>,
-    pub range_cols: Range<usize>,
+    range: (RangeType, RangeType),
 }
 
 impl<'a, T: NumAssign + Copy + Default, const ROW: usize, const COL: usize>
@@ -49,39 +59,120 @@ impl<'a, T: NumAssign + Copy + Default, const ROW: usize, const COL: usize>
     fn from(m: MatrixSliceMut<'a, T, ROW, COL>) -> Self {
         Self {
             matrix: m.matrix,
-            range_rows: m.range_rows,
-            range_cols: m.range_cols,
+            range: m.range,
         }
     }
 }
 
-/// get a mutable slice of the input matrix
-impl<'a, T: 'a + NumAssign + Copy + Default, const ROW: usize, const COL: usize>
-    From<(&'a mut Matrix<T, ROW, COL>, [Range<usize>; 2])> for MatrixSliceMut<'a, T, ROW, COL>
-{
-    fn from(
-        (m, [range_rows, range_cols]): (&'a mut Matrix<T, ROW, COL>, [Range<usize>; 2]),
-    ) -> Self {
-        Self {
-            matrix: m,
-            range_rows: range_rows,
-            range_cols: range_cols,
+macro_rules! impl_matrix_slice_mut {
+    ($type_range_rows:ty, $type_range_cols:ty, $enum_range_rows:ty,  $enum_range_cols:ty) => {
+        paste! {
+            /// get a mutable slice of the input matrix
+            impl<'a, T: 'a + NumAssign + Copy + Default, const ROW: usize, const COL: usize>
+                From<(
+                    &'a mut Matrix<T, ROW, COL>,
+                    ($type_range_rows, $type_range_cols),
+                )> for MatrixSliceMut<'a, T, ROW, COL>
+            {
+                fn from(
+                    (m, (range_rows, range_cols)): (
+                        &'a mut Matrix<T, ROW, COL>,
+                        ($type_range_rows, $type_range_cols),
+                    ),
+                ) -> Self {
+                    Self {
+                        matrix: m,
+                        range: ($enum_range_rows(range_rows), $enum_range_cols(range_cols)),
+                    }
+                }
+            }
+            /// get a slice of the input matrix
+            ///
+            /// ```compile_fail
+            /// let (m1, mut m2) = (
+            ///     Matrix::<f64, 15, 10>::default(),
+            ///     Matrix::<f64, 15, 15>::default(),
+            /// );
+            /// let src = MatrixSlice::from((&m1, [(2..15), (3..15)]));
+            /// let mut dest = MatrixSliceMut::from((&mut m2, [(5..8), (7..10)]));
+            /// drop(m2);
+            /// dest.assign(src);
+            impl<'a, T: 'a + NumAssign + Copy + Default, const ROW: usize, const COL: usize>
+                From<(
+                    &'a Matrix<T, ROW, COL>,
+                    ($type_range_rows, $type_range_cols),
+                )> for MatrixSlice<'a, T, ROW, COL>
+            {
+                fn from(
+                    (m, (range_rows, range_cols)): (
+                        &'a Matrix<T, ROW, COL>,
+                        ($type_range_rows, $type_range_cols),
+                    ),
+                ) -> Self {
+                    Self {
+                        matrix: m,
+                        range: ($enum_range_rows(range_rows), $enum_range_cols(range_cols)),
+                    }
+                }
+            }
         }
-    }
+    };
 }
 
-/// get a slice of the input matrix
-impl<'a, T: 'a + NumAssign + Copy + Default, const ROW: usize, const COL: usize>
-    From<(&'a Matrix<T, ROW, COL>, [Range<usize>; 2])> for MatrixSlice<'a, T, ROW, COL>
-{
-    fn from((m, [range_rows, range_cols]): (&'a Matrix<T, ROW, COL>, [Range<usize>; 2])) -> Self {
-        Self {
-            matrix: m,
-            range_rows: range_rows,
-            range_cols: range_cols,
-        }
-    }
+macro_rules! impl_matrix_slice_outer {
+    ($type_range_rows:ty, $enum_range_rows:ty) => {
+        impl_matrix_slice_mut!(
+            $type_range_rows,
+            Range<usize>,
+            $enum_range_rows,
+            RangeType::Range
+        );
+        impl_matrix_slice_mut!(
+            $type_range_rows,
+            RangeFrom<usize>,
+            $enum_range_rows,
+            RangeType::RangeFrom
+        );
+        impl_matrix_slice_mut!(
+            $type_range_rows,
+            RangeFull,
+            $enum_range_rows,
+            RangeType::RangeFull
+        );
+        impl_matrix_slice_mut!(
+            $type_range_rows,
+            RangeTo<usize>,
+            $enum_range_rows,
+            RangeType::RangeTo
+        );
+        impl_matrix_slice_mut!(
+            $type_range_rows,
+            RangeToInclusive<usize>,
+            $enum_range_rows,
+            RangeType::RangeToInclusive
+        );
+        impl_matrix_slice_mut!(
+            $type_range_rows,
+            RangeInclusive<usize>,
+            $enum_range_rows,
+            RangeType::RangeInclusive
+        );
+    };
 }
+
+impl_matrix_slice_outer!(Range<usize>, RangeType::Range);
+impl_matrix_slice_outer!(RangeFull, RangeType::RangeFull);
+impl_matrix_slice_outer!(RangeFrom<usize>, RangeType::RangeFrom);
+impl_matrix_slice_outer!(RangeTo<usize>, RangeType::RangeTo);
+impl_matrix_slice_outer!(RangeToInclusive<usize>, RangeType::RangeToInclusive);
+impl_matrix_slice_outer!(RangeInclusive<usize>, RangeType::RangeInclusive);
+
+#[derive(Default)]
+struct RangeInfo {
+    pub start: usize,
+    pub count: usize,
+}
+
 /// # Copy values from one slice to another.
 /// # Example
 /// ```
@@ -104,24 +195,125 @@ impl<'a, T: NumAssign + Copy + Default, const ROW: usize, const COL: usize>
         &mut self,
         other: MatrixSlice<'a, T, ROW_OTHER, COL_OTHER>,
     ) {
-        assert!(
-            self.range_rows.end - self.range_rows.start
-                <= other.range_rows.end - other.range_rows.start,
-        );
+        let (range_rows, range_cols) = self.get_range();
+        let dest_range_rows_count = range_rows.count;
+        let dest_range_cols_count = range_cols.count;
+        let dest_rows_start = range_rows.start;
+        let dest_cols_start = range_cols.start;
 
-        assert!(
-            self.range_cols.end - self.range_cols.start
-                <= other.range_cols.end - other.range_cols.start,
-        );
+        let (range_rows, range_cols) = other.get_range();
+        let src_range_rows_count = range_rows.count;
+        let src_range_cols_count = range_cols.count;
+        let src_rows_start = range_rows.start;
+        let src_cols_start = range_cols.start;
 
-        for (i_idx, i) in (self.range_rows.start..self.range_rows.end).enumerate() {
-            for (j_idx, j) in (self.range_cols.start..self.range_cols.end).enumerate() {
-                self.matrix[[i, j]] = other.matrix[[
-                    i_idx + other.range_rows.start,
-                    j_idx + other.range_cols.start,
-                ]];
+        assert!(dest_range_rows_count <= src_range_rows_count);
+
+        assert!(dest_range_cols_count <= src_range_cols_count);
+
+        for i in 0..dest_range_rows_count {
+            for j in 0..dest_range_cols_count {
+                self.matrix[[dest_rows_start + i, dest_cols_start + j]] =
+                    other.matrix[[src_rows_start + i, src_cols_start + j]];
             }
         }
+    }
+    fn get_range(&'a self) -> (RangeInfo, RangeInfo) {
+        let mut ranges: [RangeInfo; 2] = Default::default();
+        for (idx, r) in (&[&self.range.0, &self.range.1]).iter().enumerate() {
+            let range_count: usize;
+            let range_start: usize;
+            match r {
+                RangeType::Range(Range { start, end }) => {
+                    range_count = end - start;
+                    range_start = *start;
+                }
+                RangeType::RangeInclusive(ref range_inclusive @ _) => {
+                    let (&start, &end) = (range_inclusive.start(), range_inclusive.end());
+                    range_count = end - start + 1;
+                    range_start = start;
+                }
+                RangeType::RangeFull(_) => {
+                    if idx == 0 {
+                        range_count = self.matrix.rows();
+                    } else {
+                        range_count = self.matrix.cols();
+                    }
+                    range_start = 0;
+                }
+                RangeType::RangeFrom(RangeFrom { start }) => {
+                    if idx == 0 {
+                        range_count = self.matrix.rows();
+                    } else {
+                        range_count = self.matrix.cols();
+                    }
+                    range_start = *start;
+                }
+                RangeType::RangeTo(RangeTo { end }) => {
+                    range_count = *end;
+                    range_start = 0;
+                }
+                RangeType::RangeToInclusive(RangeToInclusive { end }) => {
+                    range_count = end + 1;
+                    range_start = 0;
+                }
+            }
+            ranges[idx].start = range_start;
+            ranges[idx].count = range_count;
+        }
+        let [range_rows, range_cols] = ranges;
+        (range_rows, range_cols)
+    }
+}
+
+impl<'a, T: NumAssign + Copy + Default, const ROW: usize, const COL: usize>
+    MatrixSlice<'a, T, ROW, COL>
+{
+    fn get_range(&'a self) -> (RangeInfo, RangeInfo) {
+        let mut ranges: [RangeInfo; 2] = Default::default();
+        for (idx, r) in (&[&self.range.0, &self.range.1]).iter().enumerate() {
+            let range_count: usize;
+            let range_start: usize;
+            match r {
+                RangeType::Range(Range { start, end }) => {
+                    range_count = end - start;
+                    range_start = *start;
+                }
+                RangeType::RangeInclusive(ref range_inclusive @ _) => {
+                    let (&start, &end) = (range_inclusive.start(), range_inclusive.end());
+                    range_count = end - start + 1;
+                    range_start = start;
+                }
+                RangeType::RangeFull(_) => {
+                    if idx == 0 {
+                        range_count = self.matrix.rows();
+                    } else {
+                        range_count = self.matrix.cols();
+                    }
+                    range_start = 0;
+                }
+                RangeType::RangeFrom(RangeFrom { start }) => {
+                    if idx == 0 {
+                        range_count = self.matrix.rows();
+                    } else {
+                        range_count = self.matrix.cols();
+                    }
+                    range_start = *start;
+                }
+                RangeType::RangeTo(RangeTo { end }) => {
+                    range_count = *end;
+                    range_start = 0;
+                }
+                RangeType::RangeToInclusive(RangeToInclusive { end }) => {
+                    range_count = end + 1;
+                    range_start = 0;
+                }
+            }
+            ranges[idx].start = range_start;
+            ranges[idx].count = range_count;
+        }
+        let [range_rows, range_cols] = ranges;
+        (range_rows, range_cols)
     }
 }
 
@@ -933,8 +1125,8 @@ fn matrix_subregion_unmatched_shape() {
 #[cfg(test)]
 #[quickcheck]
 fn matrix_slice_assign((m1, mut m2): (Matrix<f64, 15, 10>, Matrix<f64, 15, 10>)) -> bool {
-    let src = MatrixSlice::<f64, 15, 10>::from((&m1, [(2..5), (3..6)]));
-    let mut dest = MatrixSliceMut::<f64, 15, 10>::from((&mut m2, [(5..8), (7..10)]));
+    let src = MatrixSlice::<f64, 15, 10>::from((&m1, ((2..5), (3..6))));
+    let mut dest = MatrixSliceMut::<f64, 15, 10>::from((&mut m2, ((5..8), (7..10))));
     dest.assign(src);
     let mut check = true;
     for (i_idx, i) in (5..8).enumerate() {
@@ -950,8 +1142,8 @@ fn matrix_slice_assign((m1, mut m2): (Matrix<f64, 15, 10>, Matrix<f64, 15, 10>))
 fn matrix_slice_assign_from_larget_region(
     (m1, mut m2): (Matrix<f64, 15, 10>, Matrix<f64, 15, 15>),
 ) -> bool {
-    let src = MatrixSlice::from((&m1, [(2..15), (3..15)]));
-    let mut dest = MatrixSliceMut::from((&mut m2, [(5..8), (7..10)]));
+    let src = MatrixSlice::from((&m1, ((2..15), (3..15))));
+    let mut dest = MatrixSliceMut::from((&mut m2, ((5..8), (7..10))));
     dest.assign(src);
     let mut check = true;
     for (i_idx, i) in (5..8).enumerate() {
@@ -970,9 +1162,126 @@ fn matrix_slice_assign_dest_shape_too_big() {
             Matrix::<f64, 15, 10>::default(),
             Matrix::<f64, 15, 15>::default(),
         );
-        let src = MatrixSlice::from((&m1, [(2..5), (3..6)]));
-        let mut dest = MatrixSliceMut::from((&mut m2, [(5..9), (7..10)]));
+        let src = MatrixSlice::from((&m1, ((2..5), (3..6))));
+        let mut dest = MatrixSliceMut::from((&mut m2, ((5..9), (7..10))));
         dest.assign(src)
     });
     assert!(result.is_err());
+}
+
+#[cfg(test)]
+#[quickcheck]
+fn matrix_slice_assign_range_full((m1, mut m2): (Matrix<f64, 15, 10>, Matrix<f64, 3, 3>)) -> bool {
+    let src = MatrixSlice::<f64, 15, 10>::from((&m1, ((2..5), (3..6))));
+    let mut dest = MatrixSliceMut::from((&mut m2, ((..), (..))));
+    dest.assign(src);
+    let mut check = true;
+    for (i_idx, i) in (0..3).enumerate() {
+        for (j_idx, j) in (0..3).enumerate() {
+            check &= m2[[i, j]] == m1[[2 + i_idx, 3 + j_idx]];
+        }
+    }
+    check
+}
+
+#[cfg(test)]
+#[quickcheck]
+fn matrix_slice_assign_range_inclusive(
+    (m1, mut m2): (Matrix<f64, 15, 10>, Matrix<f64, 4, 4>),
+) -> bool {
+    let src = MatrixSlice::<f64, 15, 10>::from((&m1, ((2..=5), (3..=6))));
+    let mut dest = MatrixSliceMut::from((&mut m2, ((..), (..))));
+    dest.assign(src);
+    let mut check = true;
+    for (i_idx, i) in (0..4).enumerate() {
+        for (j_idx, j) in (0..4).enumerate() {
+            check &= m2[[i, j]] == m1[[2 + i_idx, 3 + j_idx]];
+        }
+    }
+    check
+}
+
+#[cfg(test)]
+#[quickcheck]
+fn matrix_slice_combo_range_and_range_inclusive(
+    (m1, mut m2): (Matrix<f64, 15, 10>, Matrix<f64, 4, 4>),
+) -> bool {
+    let src = MatrixSlice::<f64, 15, 10>::from((&m1, ((2..6), (3..=6))));
+    let mut dest = MatrixSliceMut::from((&mut m2, ((..), (..))));
+    dest.assign(src);
+    let mut check = true;
+    for (i_idx, i) in (0..4).enumerate() {
+        for (j_idx, j) in (0..4).enumerate() {
+            check &= m2[[i, j]] == m1[[2 + i_idx, 3 + j_idx]];
+        }
+    }
+    check
+}
+
+#[cfg(test)]
+#[quickcheck]
+fn matrix_slice_combo_range_and_range_to(
+    (m1, mut m2): (Matrix<f64, 15, 10>, Matrix<f64, 4, 4>),
+) -> bool {
+    let src = MatrixSlice::<f64, 15, 10>::from((&m1, ((..4), (3..7))));
+    let mut dest = MatrixSliceMut::from((&mut m2, ((..), (..))));
+    dest.assign(src);
+    let mut check = true;
+    for (i_idx, i) in (0..4).enumerate() {
+        for (j_idx, j) in (0..4).enumerate() {
+            check &= m2[[i, j]] == m1[[0 + i_idx, 3 + j_idx]];
+        }
+    }
+    check
+}
+
+#[cfg(test)]
+#[quickcheck]
+fn matrix_slice_combo_range_and_range_from(
+    (m1, mut m2): (Matrix<f64, 15, 10>, Matrix<f64, 4, 4>),
+) -> bool {
+    let src = MatrixSlice::<f64, 15, 10>::from((&m1, ((11..), (3..7))));
+    let mut dest = MatrixSliceMut::from((&mut m2, ((..), (..))));
+    dest.assign(src);
+    let mut check = true;
+    for (i_idx, i) in (0..4).enumerate() {
+        for (j_idx, j) in (0..4).enumerate() {
+            check &= m2[[i, j]] == m1[[11 + i_idx, 3 + j_idx]];
+        }
+    }
+    check
+}
+
+#[cfg(test)]
+#[quickcheck]
+fn matrix_slice_combo_range_from_and_range_to_inclusive(
+    (m1, mut m2): (Matrix<f64, 15, 10>, Matrix<f64, 4, 4>),
+) -> bool {
+    let src = MatrixSlice::<f64, 15, 10>::from((&m1, ((11..), (..=3))));
+    let mut dest = MatrixSliceMut::from((&mut m2, ((..), (..))));
+    dest.assign(src);
+    let mut check = true;
+    for (i_idx, i) in (0..4).enumerate() {
+        for (j_idx, j) in (0..4).enumerate() {
+            check &= m2[[i, j]] == m1[[11 + i_idx, 0 + j_idx]];
+        }
+    }
+    check
+}
+
+#[cfg(test)]
+#[quickcheck]
+fn matrix_slice_combo_range_inclusive_and_range_to_inclusive(
+    (m1, mut m2): (Matrix<f64, 15, 10>, Matrix<f64, 4, 4>),
+) -> bool {
+    let src = MatrixSlice::<f64, 15, 10>::from((&m1, ((11..15), (0..4))));
+    let mut dest = MatrixSliceMut::from((&mut m2, ((0..=3), (..=3))));
+    dest.assign(src);
+    let mut check = true;
+    for (i_idx, i) in (0..4).enumerate() {
+        for (j_idx, j) in (0..4).enumerate() {
+            check &= m2[[i, j]] == m1[[11 + i_idx, 0 + j_idx]];
+        }
+    }
+    check
 }

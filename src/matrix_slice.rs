@@ -1,8 +1,6 @@
 use core::ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
-use num_traits::{float::Float, real::Real, NumAssign, Signed};
+use num_traits::NumAssign;
 use paste::paste;
-use std::ops::{Deref, DerefMut};
-use std::ops::{Index, IndexMut};
 
 use crate::matrix::*;
 
@@ -518,9 +516,9 @@ fn matrix_slice_combo_range_inclusive_and_range_to_inclusive(
 
 #[cfg(test)]
 #[quickcheck]
-fn matrix_slice_to_owned_matrix(m1: Matrix<f64, 15, 15>) -> bool {
-    let src = MatrixSlice::from((&m1, ((0..10), (0..10))));
-    let owned: Matrix<f64, 10, 10> = Matrix::from(src);
+fn matrix_slice_to_owned_matrix(m1: Matrix<i64, 15, 15>) -> bool {
+    let slice = MatrixSlice::from((&m1, ((0..10), (0..10))));
+    let owned: Matrix<i64, 10, 10> = Matrix::from(slice);
     let mut check = true;
     for i in 0..10 {
         for j in 0..10 {
@@ -528,4 +526,15 @@ fn matrix_slice_to_owned_matrix(m1: Matrix<f64, 15, 15>) -> bool {
         }
     }
     check
+}
+
+#[test]
+fn matrix_slice_unmatched_shape() {
+    let m = Matrix::<i64, 4, 1>::default();
+    use std::panic;
+    let result = panic::catch_unwind(|| {
+        let slice = MatrixSlice::from((&m, ((0..4), (0..1))));
+        let _owned: Matrix<i64, 4, 3> = Matrix::from(slice);
+    });
+    assert!(result.is_err());
 }

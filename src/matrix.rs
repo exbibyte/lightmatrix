@@ -11,63 +11,6 @@ pub struct Matrix<T: NumAssign + Copy + Default, const ROW: usize, const COL: us
     pub [[T; COL]; ROW],
 );
 
-/// get a 3x3 subregion of the input matrix
-impl<T: NumAssign + Copy + Default, const ROW: usize, const COL: usize>
-    From<(Matrix<T, ROW, COL>, [Range<usize>; 2])> for Matrix<T, 3, 3>
-{
-    fn from((m, [range_rows, range_cols]): (Matrix<T, ROW, COL>, [Range<usize>; 2])) -> Self {
-        let mut ret = Self::zero();
-        assert!(range_rows.end <= ROW);
-        assert!(range_cols.end <= COL);
-        assert!(range_rows.end - range_rows.start <= 3);
-        assert!(range_cols.end - range_cols.start <= 3);
-        for (out_i, i) in (range_rows.start..range_rows.end).enumerate() {
-            for (out_j, j) in (range_cols.start..range_cols.end).enumerate() {
-                ret[[out_i, out_j]] = m[[i, j]];
-            }
-        }
-        ret
-    }
-}
-
-/// get a 3x1 subregion of the input matrix
-impl<T: NumAssign + Copy + Default, const ROW: usize, const COL: usize>
-    From<(Matrix<T, ROW, COL>, [Range<usize>; 2])> for Matrix<T, 3, 1>
-{
-    fn from((m, [range_rows, range_cols]): (Matrix<T, ROW, COL>, [Range<usize>; 2])) -> Self {
-        let mut ret = Self::zero();
-        assert!(range_rows.end <= ROW);
-        assert!(range_cols.end <= COL);
-        assert!(range_rows.end - range_rows.start <= 3);
-        assert!(range_cols.end - range_cols.start <= 1);
-        for (out_i, i) in (range_rows.start..range_rows.end).enumerate() {
-            for (out_j, j) in (range_cols.start..range_cols.end).enumerate() {
-                ret[[out_i, out_j]] = m[[i, j]];
-            }
-        }
-        ret
-    }
-}
-
-/// get a 1x3 subregion of the input matrix
-impl<T: NumAssign + Copy + Default, const ROW: usize, const COL: usize>
-    From<(Matrix<T, ROW, COL>, [Range<usize>; 2])> for Matrix<T, 1, 3>
-{
-    fn from((m, [range_rows, range_cols]): (Matrix<T, ROW, COL>, [Range<usize>; 2])) -> Self {
-        let mut ret = Self::zero();
-        assert!(range_rows.end <= ROW);
-        assert!(range_cols.end <= COL);
-        assert!(range_rows.end - range_rows.start <= 1);
-        assert!(range_cols.end - range_cols.start <= 3);
-        for (out_i, i) in (range_rows.start..range_rows.end).enumerate() {
-            for (out_j, j) in (range_cols.start..range_cols.end).enumerate() {
-                ret[[out_i, out_j]] = m[[i, j]];
-            }
-        }
-        ret
-    }
-}
-
 impl<T: NumAssign + Copy + Default, const ROW: usize, const COL: usize> Default
     for Matrix<T, ROW, COL>
 {
@@ -796,41 +739,4 @@ fn matrix_dot((m1, m2): (Matrix<f64, 15, 3>, Matrix<f64, 3, 7>)) -> bool {
         }
     }
     matrix_approx_eq_float(&ret, &expected, 1e-7)
-}
-
-#[cfg(test)]
-#[quickcheck]
-fn matrix_subregion_3x3(m: Matrix<f64, 15, 10>) -> bool {
-    let sub_region = [(2..5), (3..6)];
-    let ret = Matrix::<f64, 3, 3>::from((m, sub_region));
-
-    let mut expected = Matrix::<f64, 3, 3>::default();
-    for (i_out, i) in (2..5).enumerate() {
-        for (j_out, j) in (3..6).enumerate() {
-            expected[[i_out, j_out]] = m[[i, j]];
-        }
-    }
-    matrix_approx_eq_float(&ret, &expected, 1e-7)
-}
-
-#[cfg(test)]
-#[quickcheck]
-fn matrix_subregion_3x1(m: Matrix<f64, 4, 1>) -> bool {
-    let ret = Matrix::<f64, 3, 1>::from((m, [(0..3), (0..1)]));
-
-    let mut expected = Matrix::<f64, 3, 1>::default();
-    for (i_out, i) in (0..3).enumerate() {
-        for (j_out, j) in (0..1).enumerate() {
-            expected[[i_out, j_out]] = m[[i, j]];
-        }
-    }
-    matrix_approx_eq_float(&ret, &expected, 1e-7)
-}
-
-#[test]
-fn matrix_subregion_unmatched_shape() {
-    let m = Matrix::<f64, 4, 1>::default();
-    use std::panic;
-    let result = panic::catch_unwind(|| Matrix::<f64, 3, 1>::from((m, [(0..4), (0..1)])));
-    assert!(result.is_err());
 }

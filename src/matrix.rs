@@ -5,6 +5,8 @@ use std::ops::{Index, IndexMut};
 // #[cfg(test)]
 use std::fmt::Debug;
 
+use crate::matrix_slice::*;
+
 #[derive(Debug, Clone, Copy)]
 pub struct Matrix<T: NumAssign + Copy + Default, const ROW: usize, const COL: usize>(
     pub [[T; COL]; ROW],
@@ -290,6 +292,67 @@ impl<T: NumAssign + Copy + Default, const ROW: usize, const COL: usize> Matrix<T
         let a = self.norm_l2();
         *self / a
     }
+
+    fn cross_3(a: &Matrix<T, 3, 1>, b: &Matrix<T, 3, 1>) -> Matrix<T, 3, 1>
+    where
+        T: Real,
+    {
+        let mut ret: Matrix<T, 3, 1> = Default::default();
+        ret[[0, 0]] = a[[1, 0]] * b[[2, 0]] - a[[2, 0]] * b[[1, 0]];
+        ret[[1, 0]] = -(a[[0, 0]] * b[[2, 0]] - a[[2, 0]] * b[[0, 0]]);
+        ret[[2, 0]] = a[[0, 0]] * b[[1, 0]] - a[[1, 0]] * b[[0, 0]];
+        ret
+    }
+
+    pub fn cross(&self, other: &Self) -> Self
+    where
+        T: Real,
+    {
+        use std::mem;
+        match (self.rows(), other.rows(), self.cols(), other.cols()) {
+            (3, 3, 1, 1) => {
+                let self_3 = Matrix::from(&MatrixSlice::from((self, ((..), (..)))));
+                let other_3 = Matrix::from(&MatrixSlice::from((other, ((..), (..)))));
+                let ret = Self::cross_3(&self_3, &other_3);
+                let m: &Matrix<T, ROW, COL> = unsafe { mem::transmute(&ret) };
+                *m
+            }
+            (1, 1, 3, 3) => {
+                let self_3 = Matrix::from(&MatrixSlice::from((self, ((..), (..))))).t();
+                let other_3 = Matrix::from(&MatrixSlice::from((other, ((..), (..))))).t();
+                let ret = Self::cross_3(&self_3, &other_3).t();
+                let m: &Matrix<T, ROW, COL> = unsafe { mem::transmute(&ret) };
+                *m
+            }
+            (4, 4, 1, 1) => {
+                assert!(self[[3, 0]] == T::zero());
+                assert!(other[[3, 0]] == T::zero());
+                let self_3 = Matrix::from(&MatrixSlice::from((self, ((..3), (..)))));
+                let other_3 = Matrix::from(&MatrixSlice::from((other, ((..3), (..)))));
+                let ret = Self::cross_3(&self_3, &other_3);
+                let mut m: Matrix<T, 4, 1> = Default::default();
+                let mut slice = MatrixSliceMut::from((&mut m, ((..3), (..))));
+                slice.assign(MatrixSlice::from((&ret, ((..), (..)))));
+                let mm: &Matrix<T, ROW, COL> = unsafe { mem::transmute(&m) };
+                *mm
+            }
+            (1, 1, 4, 4) => {
+                assert!(self[[0, 3]] == T::zero());
+                assert!(other[[0, 3]] == T::zero());
+                let self_3 = Matrix::from(&MatrixSlice::from((&self.t(), ((..3), (..)))));
+                let other_3 = Matrix::from(&MatrixSlice::from((&other.t(), ((..3), (..)))));
+                let ret = Self::cross_3(&self_3, &other_3).t();
+                let mut m: Matrix<T, 1, 4> = Default::default();
+                let mut slice = MatrixSliceMut::from((&mut m, ((..), (..3))));
+                slice.assign(MatrixSlice::from((&ret, ((..), (..)))));
+                let mm: &Matrix<T, ROW, COL> = unsafe { mem::transmute(&m) };
+                *mm
+            }
+            _ => {
+                unimplemented!();
+            }
+        }
+    }
 }
 
 impl<T: NumAssign + Copy + Default, const ROW: usize> Matrix<T, ROW, ROW> {
@@ -517,6 +580,42 @@ impl<T: NumAssign + Copy + Default, const ROW: usize> Matrix<T, ROW, ROW> {
             unimplemented!();
         }
     }
+}
+
+#[test]
+fn test_cross() {
+    let a = Matrix::from([[2f64, 3f64, 4f64]]).t();
+    let b = Matrix::from([[5f64, 6f64, 7f64]]).t();
+    let c = a.cross(&b);
+    assert_matrix_approx_eq_float(&c, &Matrix::from([[-3f64, 6f64, -3f64]]).t(), 1e-7);
+    // assert_eq!(c, Matrix::from([[-3f64, 6f64, -3f64]]).t());
+}
+
+#[test]
+fn test_cross_2() {
+    let a = Matrix::from([[2f64, 3f64, 4f64]]);
+    let b = Matrix::from([[5f64, 6f64, 7f64]]);
+    let c = a.cross(&b);
+    assert_matrix_approx_eq_float(&c, &Matrix::from([[-3f64, 6f64, -3f64]]), 1e-7);
+    // assert_eq!(c, Matrix::from([[-3f64, 6f64, -3f64]]));
+}
+
+#[test]
+fn test_cross_3() {
+    let a = Matrix::from([[2f64, 3f64, 4f64, 0f64]]).t();
+    let b = Matrix::from([[5f64, 6f64, 7f64, 0f64]]).t();
+    let c = a.cross(&b);
+    assert_matrix_approx_eq_float(&c, &Matrix::from([[-3f64, 6f64, -3f64, 0f64]]).t(), 1e-7);
+    // assert_eq!(c, Matrix::from([[-3f64, 6f64, -3f64, 0f64]]).t());
+}
+
+#[test]
+fn test_cross_4() {
+    let a = Matrix::from([[2f64, 3f64, 4f64, 0f64]]);
+    let b = Matrix::from([[5f64, 6f64, 7f64, 0f64]]);
+    let c = a.cross(&b);
+    assert_matrix_approx_eq_float(&c, &Matrix::from([[-3f64, 6f64, -3f64, 0f64]]), 1e-7);
+    // assert_eq!(c, Matrix::from([[-3f64, 6f64, -3f64, 0f64]]));
 }
 
 #[test]

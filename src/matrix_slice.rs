@@ -287,7 +287,7 @@ impl<'a, T: NumAssign + Copy + Default, const ROW: usize, const COL: usize>
                     range_count = end - start;
                     range_start = *start;
                 }
-                RangeType::RangeInclusive(ref range_inclusive @ _) => {
+                RangeType::RangeInclusive(ref range_inclusive) => {
                     let (&start, &end) = (range_inclusive.start(), range_inclusive.end());
                     range_count = end - start + 1;
                     range_start = start;
@@ -338,7 +338,7 @@ impl<'a, T: NumAssign + Copy + Default, const ROW: usize, const COL: usize>
                     range_count = end - start;
                     range_start = *start;
                 }
-                RangeType::RangeInclusive(ref range_inclusive @ _) => {
+                RangeType::RangeInclusive(ref range_inclusive) => {
                     let (&start, &end) = (range_inclusive.start(), range_inclusive.end());
                     range_count = end - start + 1;
                     range_start = start;

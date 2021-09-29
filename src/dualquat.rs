@@ -265,8 +265,7 @@ impl<T: Float + Default + NumAssign> DualQuat<T> {
             // }
             angles[[1, 0]] = T::from(2.).unwrap().neg() * self.quat_tra().w() / norm_a;
             let m1 = q_b / norm_a;
-            let m2 =
-                screwaxis.clone() * self.quat_rot().w() * self.quat_tra().w() / (norm_a * norm_a);
+            let m2 = *screwaxis * self.quat_rot().w() * self.quat_tra().w() / (norm_a * norm_a);
             *moment = m1 + m2;
             norm_a
         }

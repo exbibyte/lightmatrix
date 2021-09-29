@@ -264,7 +264,7 @@ impl<T: NumAssign + Copy + Default, const ROW: usize, const COL: usize> Matrix<T
             }
             column_l1[j] = col_norm;
         }
-        let mut ret = *column_l1.iter().next().unwrap();
+        let mut ret = *column_l1.get(0).unwrap();
         for &i in column_l1.iter().skip(1) {
             if ret < i {
                 ret = i;

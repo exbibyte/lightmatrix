@@ -120,8 +120,7 @@ impl<const ROW: usize, const COL: usize> Eq for Matrix<i8, ROW, COL> {}
 impl<const ROW: usize, const COL: usize> Eq for Matrix<i32, ROW, COL> {}
 impl<const ROW: usize, const COL: usize> Eq for Matrix<i64, ROW, COL> {}
 
-#[cfg(test)]
-pub(crate) fn assert_matrix_approx_eq_float<
+pub fn assert_matrix_approx_eq_float<
     T: PartialEq + NumAssign + Copy + Default + Float + Debug,
     const ROW: usize,
     const COL: usize,
@@ -145,8 +144,7 @@ pub(crate) fn assert_matrix_approx_eq_float<
     }
 }
 
-#[cfg(test)]
-pub(crate) fn matrix_approx_eq_float<
+pub fn matrix_approx_eq_float<
     T: PartialEq + NumAssign + Copy + Default + Float + Debug,
     const ROW: usize,
     const COL: usize,
